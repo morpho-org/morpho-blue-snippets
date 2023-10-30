@@ -1,0 +1,10 @@
+@forge-std/=lib/morpho-blue/lib/forge-std/src/
+
+@morpho-blue/=lib/morpho-blue/src/
+@morpho-blue-test/=lib/morpho-blue/test/
+
+@snippets/=src/
+
+@solmate/=lib/morpho-blue/lib/solmate/src/
+solmate/=lib/morpho-blue/lib/permit2/lib/solmate/
+
