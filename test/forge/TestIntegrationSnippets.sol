@@ -30,11 +30,6 @@ contract TestIntegrationSnippets is BaseTest {
         testNumber = 42;
     }
 
-    //first passing test, setup working
-    function testNumberIs42() public {
-        assertEq(testNumber, 42);
-    }
-
     function testSupplyBalance(
         uint256 amountSupplied,
         uint256 amountBorrowed,
