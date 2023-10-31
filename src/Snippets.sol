@@ -5,7 +5,7 @@ import {Id, IMorpho, MarketParams, Market} from "@morpho-blue/interfaces/IMorpho
 import {IERC20} from "@morpho-blue/interfaces/IERC20.sol";
 import {IIrm} from "@morpho-blue/interfaces/IIrm.sol";
 import {IOracle} from "@morpho-blue/interfaces/IOracle.sol";
-import {ERC20Mock} from "@morpho-blue/mocks/ERC20Mock.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
@@ -47,7 +47,7 @@ contract Snippets {
      * @notice Calculates the supply APR (Annual Percentage Rate) for a given market.
      * @param marketParams The parameters of the market.
      * @param market The market for which the supply APR is being calculated.
-     * @return supplyRate The calculated supply APR as a uint256.
+     * @return supplyRate The calculated supply APR.
      */
     function supplyAPR(
         MarketParams memory marketParams,
@@ -76,7 +76,7 @@ contract Snippets {
      * @notice Calculates the borrow APR (Annual Percentage Rate) for a given market.
      * @param marketParams The parameters of the market.
      * @param market The market for which the borrow APR is being calculated.
-     * @return borrowRate The calculated borrow APR as a uint256.
+     * @return borrowRate The calculated borrow APR.
      */
     function borrowAPR(
         MarketParams memory marketParams,
@@ -92,7 +92,7 @@ contract Snippets {
      * @notice Calculates the total supply balance of a given user in a specific market.
      * @param marketParams The parameters of the market.
      * @param user The address of the user whose supply balance is being calculated.
-     * @return totalSupplyBalance The calculated total supply balance as a uint256.
+     * @return totalSupplyBalance The calculated total supply balance.
      */
     function supplyBalance(
         MarketParams memory marketParams,
@@ -105,7 +105,7 @@ contract Snippets {
      * @notice Calculates the total borrow balance of a given user in a specific market.
      * @param marketParams The parameters of the market.
      * @param user The address of the user whose borrow balance is being calculated.
-     * @return totalBorrowBalance The calculated total borrow balance as a uint256.
+     * @return totalBorrowBalance The calculated total borrow balance.
      */
     function borrowBalance(
         MarketParams memory marketParams,
@@ -116,9 +116,10 @@ contract Snippets {
 
     /**
      * @notice Calculates the total collateral balance of a given user in a specific market.
+     * @dev It uses extSloads to load only one storage slot of the Position struct and save gas.
      * @param marketId The identifier of the market.
      * @param user The address of the user whose collateral balance is being calculated.
-     * @return totalCollateralBalance The calculated total collateral balance as a uint256.
+     * @return totalCollateralBalance The calculated total collateral balance.
      */
     function collateralBalance(
         Id marketId,
@@ -136,7 +137,7 @@ contract Snippets {
     /**
      * @notice Calculates the total supply of assets in a specific market.
      * @param marketParams The parameters of the market.
-     * @return totalSupplyAssets The calculated total supply of assets as a uint256.
+     * @return totalSupplyAssets The calculated total supply of assets.
      */
     function marketTotalSupply(
         MarketParams memory marketParams
@@ -147,7 +148,7 @@ contract Snippets {
     /**
      * @notice Calculates the total borrow of assets in a specific market.
      * @param marketParams The parameters of the market.
-     * @return totalBorrowAssets The calculated total borrow of assets as a uint256.
+     * @return totalBorrowAssets The calculated total borrow of assets.
      */
     function marketTotalBorrow(
         MarketParams memory marketParams
@@ -160,7 +161,7 @@ contract Snippets {
      * @param marketParams The parameters of the market.
      * @param id The identifier of the market.
      * @param user The address of the user whose health factor is being calculated.
-     * @return healthFactor The calculated health factor as a uint256.
+     * @return healthFactor The calculated health factor.
      */
     function userHealthFactor(
         MarketParams memory marketParams,
@@ -174,8 +175,9 @@ contract Snippets {
         uint256 maxBorrow = collateral
             .mulDivDown(collateralPrice, ORACLE_PRICE_SCALE)
             .wMulDown(marketParams.lltv);
+
         if (borrowed == 0) return type(uint256).max;
-        healthFactor = maxBorrow.wMulDown(borrowed);
+        healthFactor = maxBorrow.wDivDown(borrowed);
     }
 
     // ---- MANAGING FUNCTIONS ----
@@ -193,7 +195,7 @@ contract Snippets {
         uint256 amount,
         address user
     ) external returns (uint256 assetsSupplied, uint256 sharesSupplied) {
-        ERC20Mock(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).approve(
             address(morpho),
             type(uint256).max
         );
@@ -219,7 +221,7 @@ contract Snippets {
         uint256 amount,
         address user
     ) external {
-        ERC20Mock(marketParams.collateralToken).approve(
+        ERC20(marketParams.collateralToken).approve(
             address(morpho),
             type(uint256).max
         );
@@ -228,7 +230,7 @@ contract Snippets {
     }
 
     /**
-     * @notice Handles the withdrawal of collateral by a user from a specific market of a specific amount.
+     * @notice Handles the withdrawal of collateral by a user from a specific market of a specific amount. The withdrawed funds are going to the receiver.
      * @param marketParams The parameters of the market.
      * @param amount The amount of collateral the user is withdrawing.
      * @param user The address of the user withdrawing the collateral.
@@ -236,14 +238,15 @@ contract Snippets {
     function withdrawCollateral(
         MarketParams memory marketParams,
         uint256 amount,
-        address user
+        address user,
+        address receiver
     ) external {
-        ERC20Mock(marketParams.collateralToken).approve(
+        ERC20(marketParams.collateralToken).approve(
             address(morpho),
             type(uint256).max
         );
         address onBehalf = user;
-        morpho.withdrawCollateral(marketParams, amount, onBehalf, onBehalf);
+        morpho.withdrawCollateral(marketParams, amount, onBehalf, receiver);
     }
 
     /**
@@ -257,9 +260,10 @@ contract Snippets {
     function withdrawAmount(
         MarketParams memory marketParams,
         uint256 amount,
-        address user
+        address user,
+        address receiver
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
-        ERC20Mock(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).approve(
             address(morpho),
             type(uint256).max
         );
@@ -270,7 +274,7 @@ contract Snippets {
             amount,
             shares,
             onBehalf,
-            onBehalf
+            receiver
         );
     }
 
@@ -283,9 +287,10 @@ contract Snippets {
      */
     function withdraw50Percent(
         MarketParams memory marketParams,
-        address user
+        address user,
+        address receiver
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
-        ERC20Mock(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).approve(
             address(morpho),
             type(uint256).max
         );
@@ -300,7 +305,7 @@ contract Snippets {
             amount,
             shares,
             onBehalf,
-            onBehalf
+            receiver
         );
     }
 
@@ -313,9 +318,10 @@ contract Snippets {
      */
     function withdrawAll(
         MarketParams memory marketParams,
-        address user
+        address user,
+        address receiver
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
-        ERC20Mock(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).approve(
             address(morpho),
             type(uint256).max
         );
@@ -329,7 +335,7 @@ contract Snippets {
             amount,
             supplyShares,
             onBehalf,
-            onBehalf
+            receiver
         );
     }
 
@@ -346,7 +352,7 @@ contract Snippets {
         uint256 amount,
         address user
     ) external returns (uint256 assetsBorrowed, uint256 sharesBorrowed) {
-        ERC20Mock(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).approve(
             address(morpho),
             type(uint256).max
         );
@@ -374,7 +380,7 @@ contract Snippets {
         uint256 amount,
         address user
     ) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
-        ERC20Mock(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).approve(
             address(morpho),
             type(uint256).max
         );
@@ -400,21 +406,26 @@ contract Snippets {
         MarketParams memory marketParams,
         address user
     ) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
-        ERC20Mock(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).approve(
             address(morpho),
             type(uint256).max
         );
 
         Id marketId = marketParams.id();
-        (, uint256 borrowShares, ) = morpho.position(marketId, address(this));
-        uint256 shares = borrowShares / 2;
+        bytes32[] memory slots = new bytes32[](1);
+        slots[0] = MorphoStorageLib.positionBorrowSharesAndCollateralSlot(
+            marketId,
+            user
+        );
+        bytes32[] memory values = morpho.extSloads(slots);
+        uint256 borrowShares = uint128(uint256(values[0]));
 
         uint256 amount = 0;
         address onBehalf = user;
         (assetsRepaid, sharesRepaid) = morpho.repay(
             marketParams,
             amount,
-            shares,
+            borrowShares / 2,
             onBehalf,
             hex""
         );
@@ -431,14 +442,23 @@ contract Snippets {
         MarketParams memory marketParams,
         address user
     ) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
-        ERC20Mock(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).approve(
             address(morpho),
             type(uint256).max
         );
 
         Id marketId = marketParams.id();
-        (, uint256 borrowShares, ) = morpho.position(marketId, address(this));
 
+        bytes32[] memory slots = new bytes32[](1);
+        slots[0] = MorphoStorageLib.positionBorrowSharesAndCollateralSlot(
+            marketId,
+            user
+        );
+        bytes32[] memory values = morpho.extSloads(slots);
+        uint256 borrowShares = uint128(uint256(values[0]));
+
+        // alternative that works, but is more costly
+        // (, uint256 borrowShares, ) = morpho.position(marketId, address(this));
         uint256 amount = 0;
         address onBehalf = user;
         (assetsRepaid, sharesRepaid) = morpho.repay(

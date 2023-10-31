@@ -245,7 +245,7 @@ contract TestIntegrationSnippets is BaseTest {
         if (borrowed == 0) {
             actualHF = type(uint256).max;
         } else {
-            actualHF = maxBorrow.wMulDown(borrowed);
+            actualHF = maxBorrow.wDivDown(borrowed);
         }
         assertEq(expectedHF, actualHF);
     }
@@ -287,7 +287,8 @@ contract TestIntegrationSnippets is BaseTest {
         (uint256 assetsWithdrawn, ) = snippets.withdrawAmount(
             marketParams,
             amount,
-            address(snippets)
+            address(snippets),
+            RECEIVER
         );
         assertEq(assetsWithdrawn, amount, "returned asset amount");
     }
@@ -299,7 +300,8 @@ contract TestIntegrationSnippets is BaseTest {
         snippets.supply(marketParams, amount, address(snippets));
         (uint256 assetsWithdrawn, ) = snippets.withdraw50Percent(
             marketParams,
-            address(snippets)
+            address(snippets),
+            RECEIVER
         );
         assertEq(assetsWithdrawn, amount / 2, "returned asset amount");
     }
@@ -311,9 +313,15 @@ contract TestIntegrationSnippets is BaseTest {
         snippets.supply(marketParams, amount, address(snippets));
         (uint256 assetsWithdrawn, ) = snippets.withdrawAll(
             marketParams,
-            address(snippets)
+            address(snippets),
+            RECEIVER
         );
         assertEq(assetsWithdrawn, amount, "returned asset amount");
+        assertEq(
+            morpho.expectedSupplyBalance(marketParams, address(snippets)),
+            0,
+            "supply assets"
+        );
     }
 
     function testWithdrawCollateral(uint256 amount) public {
@@ -327,7 +335,12 @@ contract TestIntegrationSnippets is BaseTest {
             amount,
             "collateral"
         );
-        snippets.withdrawCollateral(marketParams, amount, address(snippets));
+        snippets.withdrawCollateral(
+            marketParams,
+            amount,
+            address(snippets),
+            RECEIVER
+        );
         assertEq(morpho.collateral(id, address(snippets)), 0, "collateral");
     }
 
@@ -354,8 +367,6 @@ contract TestIntegrationSnippets is BaseTest {
 
         collateralToken.setBalance(address(snippets), amountCollateral);
 
-        vm.startPrank(address(snippets));
-
         snippets.supplyCollateral(
             marketParams,
             amountCollateral,
@@ -367,7 +378,6 @@ contract TestIntegrationSnippets is BaseTest {
             amountBorrowed,
             address(snippets)
         );
-        vm.stopPrank();
 
         assertEq(returnAssets, amountBorrowed, "returned asset amount");
     }
@@ -395,8 +405,6 @@ contract TestIntegrationSnippets is BaseTest {
 
         collateralToken.setBalance(address(snippets), amountCollateral);
 
-        vm.startPrank(address(snippets));
-
         snippets.supplyCollateral(
             marketParams,
             amountCollateral,
@@ -415,8 +423,6 @@ contract TestIntegrationSnippets is BaseTest {
             address(snippets)
         );
         assertEq(returnAssetsRepaid, amountBorrowed, "returned asset amount");
-
-        vm.stopPrank();
     }
 
     function testRepay50Percent(
@@ -442,8 +448,6 @@ contract TestIntegrationSnippets is BaseTest {
 
         collateralToken.setBalance(address(snippets), amountCollateral);
 
-        vm.startPrank(address(snippets));
-
         snippets.supplyCollateral(
             marketParams,
             amountCollateral,
@@ -463,8 +467,6 @@ contract TestIntegrationSnippets is BaseTest {
         );
 
         assertEq(repaidShares, returnBorrowShares / 2, "returned asset amount");
-
-        vm.stopPrank();
     }
 
     function testRepayAll(
@@ -490,8 +492,6 @@ contract TestIntegrationSnippets is BaseTest {
 
         collateralToken.setBalance(address(snippets), amountCollateral);
 
-        vm.startPrank(address(snippets));
-
         snippets.supplyCollateral(
             marketParams,
             amountCollateral,
@@ -511,8 +511,6 @@ contract TestIntegrationSnippets is BaseTest {
         );
 
         assertEq(repaidAssets, amountBorrowed, "returned asset amount");
-
-        vm.stopPrank();
     }
 
     function _generatePendingInterest(
