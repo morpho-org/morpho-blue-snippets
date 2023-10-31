@@ -256,8 +256,7 @@ contract TestIntegrationSnippets is BaseTest {
         uint256 timeElapsed,
         uint256 fee
     ) public {
-        uint256 amountBorrowed;
-        vm.assume(amountBorrowed == 0);
+        uint256 amountBorrowed = 0;
         _generatePendingInterest(
             amountSupplied,
             amountBorrowed,
