@@ -12,6 +12,7 @@ import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
 import {MorphoStorageLib} from "@morpho-blue/libraries/periphery/MorphoStorageLib.sol";
 import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SharesMathLib} from "@morpho-blue/libraries/SharesMathLib.sol";
 
 import {ORACLE_PRICE_SCALE} from "@morpho-blue/libraries/ConstantsLib.sol";
@@ -25,6 +26,7 @@ contract Snippets {
     using MorphoLib for IMorpho;
     using MorphoBalancesLib for IMorpho;
     using MarketParamsLib for MarketParams;
+    using SafeERC20 for ERC20;
     using SharesMathLib for uint256;
 
     /* IMMUTABLES */
@@ -195,7 +197,7 @@ contract Snippets {
         uint256 amount,
         address user
     ) external returns (uint256 assetsSupplied, uint256 sharesSupplied) {
-        ERC20(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).safeApprove(
             address(morpho),
             type(uint256).max
         );
@@ -221,7 +223,7 @@ contract Snippets {
         uint256 amount,
         address user
     ) external {
-        ERC20(marketParams.collateralToken).approve(
+        ERC20(marketParams.collateralToken).safeApprove(
             address(morpho),
             type(uint256).max
         );
@@ -240,10 +242,6 @@ contract Snippets {
         uint256 amount,
         address user
     ) external {
-        ERC20(marketParams.collateralToken).approve(
-            address(morpho),
-            type(uint256).max
-        );
         address onBehalf = user;
         address receiver = user;
 
@@ -263,10 +261,6 @@ contract Snippets {
         uint256 amount,
         address user
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
-        ERC20(marketParams.loanToken).approve(
-            address(morpho),
-            type(uint256).max
-        );
         uint256 shares = 0;
         address onBehalf = user;
         address receiver = user;
@@ -291,10 +285,6 @@ contract Snippets {
         MarketParams memory marketParams,
         address user
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
-        ERC20(marketParams.loanToken).approve(
-            address(morpho),
-            type(uint256).max
-        );
         Id marketId = marketParams.id();
         (uint256 supplyShares, , ) = morpho.position(marketId, address(this));
         uint256 amount = 0;
@@ -323,10 +313,6 @@ contract Snippets {
         MarketParams memory marketParams,
         address user
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
-        ERC20(marketParams.loanToken).approve(
-            address(morpho),
-            type(uint256).max
-        );
         Id marketId = marketParams.id();
         (uint256 supplyShares, , ) = morpho.position(marketId, address(this));
         uint256 amount = 0;
@@ -356,7 +342,7 @@ contract Snippets {
         uint256 amount,
         address user
     ) external returns (uint256 assetsBorrowed, uint256 sharesBorrowed) {
-        ERC20(marketParams.loanToken).approve(
+        ERC20(marketParams.loanToken).safeApprove(
             address(morpho),
             type(uint256).max
         );
@@ -386,10 +372,6 @@ contract Snippets {
         uint256 amount,
         address user
     ) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
-        ERC20(marketParams.loanToken).approve(
-            address(morpho),
-            type(uint256).max
-        );
         uint256 shares = 0;
         address onBehalf = user;
         (assetsRepaid, sharesRepaid) = morpho.repay(
@@ -412,11 +394,6 @@ contract Snippets {
         MarketParams memory marketParams,
         address user
     ) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
-        ERC20(marketParams.loanToken).approve(
-            address(morpho),
-            type(uint256).max
-        );
-
         Id marketId = marketParams.id();
         bytes32[] memory slots = new bytes32[](1);
         slots[0] = MorphoStorageLib.positionBorrowSharesAndCollateralSlot(
@@ -448,11 +425,6 @@ contract Snippets {
         MarketParams memory marketParams,
         address user
     ) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
-        ERC20(marketParams.loanToken).approve(
-            address(morpho),
-            type(uint256).max
-        );
-
         Id marketId = marketParams.id();
 
         bytes32[] memory slots = new bytes32[](1);
