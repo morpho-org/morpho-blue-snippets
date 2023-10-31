@@ -96,6 +96,8 @@ contract TestIntegrationSnippets is BaseTest {
         uint256 timestamp,
         uint256 fee
     ) public {
+        vm.assume(amountSupplied > 0);
+        vm.assume(amountSupplied >= amountBorrowed);
         _testMorphoLibCommon(amountSupplied, amountBorrowed, timestamp, fee);
 
         uint256 expectedCollateral = snippets.collateralBalance(id, BORROWER);
@@ -186,8 +188,6 @@ contract TestIntegrationSnippets is BaseTest {
 
     function testSupplyAPR(Market memory market) public {
         vm.assume(market.totalBorrowAssets > 0);
-        vm.assume(market.totalSupplyAssets > 100000);
-        vm.assume(market.lastUpdate > 0);
         vm.assume(market.fee < 1 ether);
         vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
 
@@ -216,6 +216,8 @@ contract TestIntegrationSnippets is BaseTest {
         uint256 timeElapsed,
         uint256 fee
     ) public {
+        uint256 actualHF;
+
         _generatePendingInterest(
             amountSupplied,
             amountBorrowed,
@@ -231,7 +233,7 @@ contract TestIntegrationSnippets is BaseTest {
         );
 
         uint256 collateralPrice = IOracle(marketParams.oracle).price();
-        uint256 collateralNormalized = morpho
+        uint256 maxBorrow = morpho
             .collateral(id, address(this))
             .mulDivDown(collateralPrice, ORACLE_PRICE_SCALE)
             .wMulDown(marketParams.lltv);
@@ -240,10 +242,277 @@ contract TestIntegrationSnippets is BaseTest {
             marketParams,
             address(this)
         );
-
-        uint actualHF = collateralNormalized.wMulDown(borrowed);
-
+        if (borrowed == 0) {
+            actualHF = type(uint256).max;
+        } else {
+            actualHF = maxBorrow.wMulDown(borrowed);
+        }
         assertEq(expectedHF, actualHF);
+    }
+
+    // ---- Test Managing Functions ----
+
+    function testSupplyAssets(uint256 amount) public {
+        amount = bound(amount, 1, MAX_TEST_AMOUNT);
+        loanToken.setBalance(address(snippets), amount);
+
+        (uint256 returnAssets, ) = snippets.supply(
+            marketParams,
+            amount,
+            address(snippets)
+        );
+
+        assertEq(returnAssets, amount, "returned asset amount");
+    }
+
+    function testSupplyCollateral(uint256 amount) public {
+        amount = bound(amount, 1, MAX_COLLATERAL_ASSETS);
+
+        collateralToken.setBalance(address(snippets), amount);
+
+        snippets.supplyCollateral(marketParams, amount, address(snippets));
+
+        assertEq(
+            morpho.collateral(id, address(snippets)),
+            amount,
+            "collateral"
+        );
+    }
+
+    function testWithdrawAmount(uint256 amount) public {
+        amount = bound(amount, 1, MAX_TEST_AMOUNT);
+        loanToken.setBalance(address(snippets), amount);
+
+        snippets.supply(marketParams, amount, address(snippets));
+        (uint256 assetsWithdrawn, ) = snippets.withdrawAmount(
+            marketParams,
+            amount,
+            address(snippets)
+        );
+        assertEq(assetsWithdrawn, amount, "returned asset amount");
+    }
+
+    function testWithdraw50Percent(uint256 amount) public {
+        amount = bound(amount, 1, MAX_TEST_AMOUNT);
+        loanToken.setBalance(address(snippets), amount);
+
+        snippets.supply(marketParams, amount, address(snippets));
+        (uint256 assetsWithdrawn, ) = snippets.withdraw50Percent(
+            marketParams,
+            address(snippets)
+        );
+        assertEq(assetsWithdrawn, amount / 2, "returned asset amount");
+    }
+
+    function testWithdrawAll(uint256 amount) public {
+        amount = bound(amount, 1, MAX_TEST_AMOUNT);
+        loanToken.setBalance(address(snippets), amount);
+
+        snippets.supply(marketParams, amount, address(snippets));
+        (uint256 assetsWithdrawn, ) = snippets.withdrawAll(
+            marketParams,
+            address(snippets)
+        );
+        assertEq(assetsWithdrawn, amount, "returned asset amount");
+    }
+
+    function testWithdrawCollateral(uint256 amount) public {
+        amount = bound(amount, 1, MAX_COLLATERAL_ASSETS);
+
+        collateralToken.setBalance(address(snippets), amount);
+
+        snippets.supplyCollateral(marketParams, amount, address(snippets));
+        assertEq(
+            morpho.collateral(id, address(snippets)),
+            amount,
+            "collateral"
+        );
+        snippets.withdrawCollateral(marketParams, amount, address(snippets));
+        assertEq(morpho.collateral(id, address(snippets)), 0, "collateral");
+    }
+
+    function testBorrowAssets(
+        uint256 amountCollateral,
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 priceCollateral
+    ) public {
+        (
+            amountCollateral,
+            amountBorrowed,
+            priceCollateral
+        ) = _boundHealthyPosition(
+            amountCollateral,
+            amountBorrowed,
+            priceCollateral
+        );
+
+        amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
+        _supply(amountSupplied);
+
+        oracle.setPrice(priceCollateral);
+
+        collateralToken.setBalance(address(snippets), amountCollateral);
+
+        vm.startPrank(address(snippets));
+
+        snippets.supplyCollateral(
+            marketParams,
+            amountCollateral,
+            address(snippets)
+        );
+
+        (uint256 returnAssets, ) = snippets.borrow(
+            marketParams,
+            amountBorrowed,
+            address(snippets)
+        );
+        vm.stopPrank();
+
+        assertEq(returnAssets, amountBorrowed, "returned asset amount");
+    }
+
+    function testRepayAssets(
+        uint256 amountCollateral,
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 priceCollateral
+    ) public {
+        (
+            amountCollateral,
+            amountBorrowed,
+            priceCollateral
+        ) = _boundHealthyPosition(
+            amountCollateral,
+            amountBorrowed,
+            priceCollateral
+        );
+
+        amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
+        _supply(amountSupplied);
+
+        oracle.setPrice(priceCollateral);
+
+        collateralToken.setBalance(address(snippets), amountCollateral);
+
+        vm.startPrank(address(snippets));
+
+        snippets.supplyCollateral(
+            marketParams,
+            amountCollateral,
+            address(snippets)
+        );
+
+        (uint256 returnAssets, ) = snippets.borrow(
+            marketParams,
+            amountBorrowed,
+            address(snippets)
+        );
+        assertEq(returnAssets, amountBorrowed, "returned asset amount");
+        (uint256 returnAssetsRepaid, ) = snippets.repayAmount(
+            marketParams,
+            amountBorrowed,
+            address(snippets)
+        );
+        assertEq(returnAssetsRepaid, amountBorrowed, "returned asset amount");
+
+        vm.stopPrank();
+    }
+
+    function testRepay50Percent(
+        uint256 amountCollateral,
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 priceCollateral
+    ) public {
+        (
+            amountCollateral,
+            amountBorrowed,
+            priceCollateral
+        ) = _boundHealthyPosition(
+            amountCollateral,
+            amountBorrowed,
+            priceCollateral
+        );
+
+        amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
+        _supply(amountSupplied);
+
+        oracle.setPrice(priceCollateral);
+
+        collateralToken.setBalance(address(snippets), amountCollateral);
+
+        vm.startPrank(address(snippets));
+
+        snippets.supplyCollateral(
+            marketParams,
+            amountCollateral,
+            address(snippets)
+        );
+
+        (uint256 returnAssets, uint256 returnBorrowShares) = snippets.borrow(
+            marketParams,
+            amountBorrowed,
+            address(snippets)
+        );
+        assertEq(returnAssets, amountBorrowed, "returned asset amount");
+
+        (, uint256 repaidShares) = snippets.repay50Percent(
+            marketParams,
+            address(snippets)
+        );
+
+        assertEq(repaidShares, returnBorrowShares / 2, "returned asset amount");
+
+        vm.stopPrank();
+    }
+
+    function testRepayAll(
+        uint256 amountCollateral,
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 priceCollateral
+    ) public {
+        (
+            amountCollateral,
+            amountBorrowed,
+            priceCollateral
+        ) = _boundHealthyPosition(
+            amountCollateral,
+            amountBorrowed,
+            priceCollateral
+        );
+
+        amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
+        _supply(amountSupplied);
+
+        oracle.setPrice(priceCollateral);
+
+        collateralToken.setBalance(address(snippets), amountCollateral);
+
+        vm.startPrank(address(snippets));
+
+        snippets.supplyCollateral(
+            marketParams,
+            amountCollateral,
+            address(snippets)
+        );
+
+        (uint256 returnAssets, ) = snippets.borrow(
+            marketParams,
+            amountBorrowed,
+            address(snippets)
+        );
+        assertEq(returnAssets, amountBorrowed, "returned asset amount");
+
+        (uint256 repaidAssets, ) = snippets.repayAll(
+            marketParams,
+            address(snippets)
+        );
+
+        assertEq(repaidAssets, amountBorrowed, "returned asset amount");
+
+        vm.stopPrank();
     }
 
     function _generatePendingInterest(
