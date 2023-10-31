@@ -253,10 +253,10 @@ contract TestIntegrationSnippets is BaseTest {
 
     function testHealthfactor0Borrow(
         uint256 amountSupplied,
-        uint256 amountBorrowed,
         uint256 timeElapsed,
         uint256 fee
     ) public {
+        uint256 amountBorrowed;
         vm.assume(amountBorrowed == 0);
         _generatePendingInterest(
             amountSupplied,

@@ -246,6 +246,7 @@ contract Snippets {
         );
         address onBehalf = user;
         address receiver = user;
+
         morpho.withdrawCollateral(marketParams, amount, onBehalf, receiver);
     }
 
@@ -269,6 +270,7 @@ contract Snippets {
         uint256 shares = 0;
         address onBehalf = user;
         address receiver = user;
+
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(
             marketParams,
             amount,
