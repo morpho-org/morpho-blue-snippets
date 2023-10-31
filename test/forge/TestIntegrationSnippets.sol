@@ -242,12 +242,37 @@ contract TestIntegrationSnippets is BaseTest {
             marketParams,
             address(this)
         );
+
         if (borrowed == 0) {
             actualHF = type(uint256).max;
         } else {
             actualHF = maxBorrow.wDivDown(borrowed);
         }
         assertEq(expectedHF, actualHF);
+    }
+
+    function testHealthfactor0Borrow(
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 timeElapsed,
+        uint256 fee
+    ) public {
+        vm.assume(amountBorrowed == 0);
+        _generatePendingInterest(
+            amountSupplied,
+            amountBorrowed,
+            timeElapsed,
+            fee
+        );
+        _accrueInterest(marketParams);
+
+        uint256 expectedHF = snippets.userHealthFactor(
+            marketParams,
+            id,
+            address(this)
+        );
+
+        assertEq(expectedHF, type(uint256).max);
     }
 
     // ---- Test Managing Functions ----
@@ -287,8 +312,7 @@ contract TestIntegrationSnippets is BaseTest {
         (uint256 assetsWithdrawn, ) = snippets.withdrawAmount(
             marketParams,
             amount,
-            address(snippets),
-            RECEIVER
+            address(snippets)
         );
         assertEq(assetsWithdrawn, amount, "returned asset amount");
     }
@@ -300,8 +324,7 @@ contract TestIntegrationSnippets is BaseTest {
         snippets.supply(marketParams, amount, address(snippets));
         (uint256 assetsWithdrawn, ) = snippets.withdraw50Percent(
             marketParams,
-            address(snippets),
-            RECEIVER
+            address(snippets)
         );
         assertEq(assetsWithdrawn, amount / 2, "returned asset amount");
     }
@@ -313,8 +336,7 @@ contract TestIntegrationSnippets is BaseTest {
         snippets.supply(marketParams, amount, address(snippets));
         (uint256 assetsWithdrawn, ) = snippets.withdrawAll(
             marketParams,
-            address(snippets),
-            RECEIVER
+            address(snippets)
         );
         assertEq(assetsWithdrawn, amount, "returned asset amount");
         assertEq(
@@ -335,12 +357,7 @@ contract TestIntegrationSnippets is BaseTest {
             amount,
             "collateral"
         );
-        snippets.withdrawCollateral(
-            marketParams,
-            amount,
-            address(snippets),
-            RECEIVER
-        );
+        snippets.withdrawCollateral(marketParams, amount, address(snippets));
         assertEq(morpho.collateral(id, address(snippets)), 0, "collateral");
     }
 

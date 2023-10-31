@@ -230,7 +230,7 @@ contract Snippets {
     }
 
     /**
-     * @notice Handles the withdrawal of collateral by a user from a specific market of a specific amount. The withdrawed funds are going to the receiver.
+     * @notice Handles the withdrawal of collateral by a user from a specific market of a specific amount. The withdrawn funds are going to the receiver.
      * @param marketParams The parameters of the market.
      * @param amount The amount of collateral the user is withdrawing.
      * @param user The address of the user withdrawing the collateral.
@@ -238,14 +238,14 @@ contract Snippets {
     function withdrawCollateral(
         MarketParams memory marketParams,
         uint256 amount,
-        address user,
-        address receiver
+        address user
     ) external {
         ERC20(marketParams.collateralToken).approve(
             address(morpho),
             type(uint256).max
         );
         address onBehalf = user;
+        address receiver = user;
         morpho.withdrawCollateral(marketParams, amount, onBehalf, receiver);
     }
 
@@ -260,8 +260,7 @@ contract Snippets {
     function withdrawAmount(
         MarketParams memory marketParams,
         uint256 amount,
-        address user,
-        address receiver
+        address user
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
         ERC20(marketParams.loanToken).approve(
             address(morpho),
@@ -269,6 +268,7 @@ contract Snippets {
         );
         uint256 shares = 0;
         address onBehalf = user;
+        address receiver = user;
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(
             marketParams,
             amount,
@@ -287,8 +287,7 @@ contract Snippets {
      */
     function withdraw50Percent(
         MarketParams memory marketParams,
-        address user,
-        address receiver
+        address user
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
         ERC20(marketParams.loanToken).approve(
             address(morpho),
@@ -300,6 +299,8 @@ contract Snippets {
         uint256 shares = supplyShares / 2;
 
         address onBehalf = user;
+        address receiver = user;
+
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(
             marketParams,
             amount,
@@ -318,8 +319,7 @@ contract Snippets {
      */
     function withdrawAll(
         MarketParams memory marketParams,
-        address user,
-        address receiver
+        address user
     ) external returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn) {
         ERC20(marketParams.loanToken).approve(
             address(morpho),
@@ -330,6 +330,8 @@ contract Snippets {
         uint256 amount = 0;
 
         address onBehalf = user;
+        address receiver = user;
+
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(
             marketParams,
             amount,
@@ -358,12 +360,14 @@ contract Snippets {
         );
         uint256 shares = 0;
         address onBehalf = user;
+        address receiver = user;
+
         (assetsBorrowed, sharesBorrowed) = morpho.borrow(
             marketParams,
             amount,
             shares,
             onBehalf,
-            onBehalf
+            receiver
         );
     }
 
