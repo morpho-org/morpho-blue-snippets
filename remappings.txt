@@ -3,6 +3,8 @@
 @morpho-blue/=lib/morpho-blue/src/
 @morpho-blue-test/=lib/morpho-blue/test/
 
+@openzeppelin/=lib/openzeppelin-contracts/
+
 @snippets/=src/
 
 @solmate/=lib/morpho-blue/lib/solmate/src/
