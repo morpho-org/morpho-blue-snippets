@@ -37,15 +37,15 @@ contract TestIntegrationSnippets is BaseTest {
     {
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
 
-        uint256 expectedSupplyAsset = snippets.supplyAssetUser(marketParams, address(this));
+        uint256 expectedSupplyAssets = snippets.supplyAssetsUser(marketParams, address(this));
 
         morpho.accrueInterest(marketParams);
 
-        uint256 actualSupplyAsset = morpho.supplyShares(id, address(this)).toAssetsDown(
+        uint256 actualSupplyAssets = morpho.supplyShares(id, address(this)).toAssetsDown(
             morpho.totalSupplyAssets(id), morpho.totalSupplyShares(id)
         );
 
-        assertEq(expectedSupplyAsset, actualSupplyAsset);
+        assertEq(expectedSupplyAssets, actualSupplyAssets);
     }
 
     function testBorrowAssetUser(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
@@ -53,15 +53,15 @@ contract TestIntegrationSnippets is BaseTest {
     {
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
 
-        uint256 expectedBorrowAsset = snippets.borrowAssetUser(marketParams, address(this));
+        uint256 expectedBorrowAssets = snippets.borrowAssetsUser(marketParams, address(this));
 
         morpho.accrueInterest(marketParams);
 
-        uint256 actualBorrowAsset = morpho.borrowShares(id, address(this)).toAssetsUp(
+        uint256 actualBorrowAssets = morpho.borrowShares(id, address(this)).toAssetsUp(
             morpho.totalBorrowAssets(id), morpho.totalBorrowShares(id)
         );
 
-        assertEq(expectedBorrowAsset, actualBorrowAsset);
+        assertEq(expectedBorrowAssets, actualBorrowAssets);
     }
 
     function testCollateralAssetUser(uint256 amountSupplied, uint256 amountBorrowed, uint256 timestamp, uint256 fee)
@@ -71,7 +71,7 @@ contract TestIntegrationSnippets is BaseTest {
         vm.assume(amountSupplied >= amountBorrowed);
         _testMorphoLibCommon(amountSupplied, amountBorrowed, timestamp, fee);
 
-        uint256 expectedCollateral = snippets.collateralAssetUser(id, BORROWER);
+        uint256 expectedCollateral = snippets.collateralAssetsUser(id, BORROWER);
         assertEq(morpho.collateral(id, BORROWER), expectedCollateral);
     }
 

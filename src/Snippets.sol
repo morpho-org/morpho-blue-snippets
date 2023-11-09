@@ -85,28 +85,28 @@ contract Snippets {
      * @notice Calculates the total supply balance of a given user in a specific market.
      * @param marketParams The parameters of the market.
      * @param user The address of the user whose supply balance is being calculated.
-     * @return totalSupplyAsset The calculated total supply balance.
+     * @return totalSupplyAssets The calculated total supply balance.
      */
-    function supplyAssetUser(MarketParams memory marketParams, address user)
+    function supplyAssetsUser(MarketParams memory marketParams, address user)
         public
         view
-        returns (uint256 totalSupplyAsset)
+        returns (uint256 totalSupplyAssets)
     {
-        totalSupplyAsset = morpho.expectedSupplyAssets(marketParams, user);
+        totalSupplyAssets = morpho.expectedSupplyAssets(marketParams, user);
     }
 
     /**
      * @notice Calculates the total borrow balance of a given user in a specific market.
      * @param marketParams The parameters of the market.
      * @param user The address of the user whose borrow balance is being calculated.
-     * @return totalBorrowAsset The calculated total borrow balance.
+     * @return totalBorrowAssets The calculated total borrow balance.
      */
-    function borrowAssetUser(MarketParams memory marketParams, address user)
+    function borrowAssetsUser(MarketParams memory marketParams, address user)
         public
         view
-        returns (uint256 totalBorrowAsset)
+        returns (uint256 totalBorrowAssets)
     {
-        totalBorrowAsset = morpho.expectedBorrowAssets(marketParams, user);
+        totalBorrowAssets = morpho.expectedBorrowAssets(marketParams, user);
     }
 
     /**
@@ -114,13 +114,13 @@ contract Snippets {
      * @dev It uses extSloads to load only one storage slot of the Position struct and save gas.
      * @param marketId The identifier of the market.
      * @param user The address of the user whose collateral balance is being calculated.
-     * @return totalCollateralAsset The calculated total collateral balance.
+     * @return totalCollateralAssets The calculated total collateral balance.
      */
-    function collateralAssetUser(Id marketId, address user) public view returns (uint256 totalCollateralAsset) {
+    function collateralAssetsUser(Id marketId, address user) public view returns (uint256 totalCollateralAssets) {
         bytes32[] memory slots = new bytes32[](1);
         slots[0] = MorphoStorageLib.positionBorrowSharesAndCollateralSlot(marketId, user);
         bytes32[] memory values = morpho.extSloads(slots);
-        totalCollateralAsset = uint256(values[0] >> 128);
+        totalCollateralAssets = uint256(values[0] >> 128);
     }
 
     /**
