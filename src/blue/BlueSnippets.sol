@@ -5,14 +5,14 @@ import {Id, IMorpho, MarketParams, Market} from "@morpho-blue/interfaces/IMorpho
 import {IERC20} from "@morpho-blue/interfaces/IERC20.sol";
 import {IIrm} from "@morpho-blue/interfaces/IIrm.sol";
 import {IOracle} from "@morpho-blue/interfaces/IOracle.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
 
 import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
 import {MorphoStorageLib} from "@morpho-blue/libraries/periphery/MorphoStorageLib.sol";
 import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {SharesMathLib} from "@morpho-blue/libraries/SharesMathLib.sol";
 
 import {ORACLE_PRICE_SCALE} from "@morpho-blue/libraries/ConstantsLib.sol";
@@ -43,7 +43,8 @@ contract BlueSnippets {
 
     /*  VIEW FUNCTIONS */
 
-    // INFORMATIONAL: No 'Total Supply' and no 'Total Borrow' functions to calculate on chain as there could be some weird oracles / markets created
+    // INFORMATIONAL: No 'Total Supply' and no 'Total Borrow' functions to calculate on chain as there could be some
+    // weird oracles / markets created
 
     /**
      * @notice Calculates the supply APR (Annual Percentage Rate) for a given market.
@@ -196,7 +197,8 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Handles the withdrawal of collateral by a user from a specific market of a specific amount. The withdrawn funds are going to the receiver.
+     * @notice Handles the withdrawal of collateral by a user from a specific market of a specific amount. The withdrawn
+     * funds are going to the receiver.
      * @param marketParams The parameters of the market.
      * @param amount The amount of collateral the user is withdrawing.
      * @param user The address of the user withdrawing the collateral.

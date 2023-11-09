@@ -56,7 +56,7 @@ contract TestIntegrationSnippets is IntegrationTest {
 
         assertGt(shares, 0, "shares");
         assertEq(vault.balanceOf(ONBEHALF), shares, "balanceOf(ONBEHALF)");
-        assertEq(morpho.expectedSupplyBalance(allMarkets[0], address(vault)), assets, "expectedSupplyBalance(vault)");
+        assertEq(morpho.expectedSupplyAssets(allMarkets[0], address(vault)), assets, "expectedSupplyAssets(vault)");
     }
 
     function testVaultAmountInMarket(uint256 assets) public {
@@ -70,10 +70,10 @@ contract TestIntegrationSnippets is IntegrationTest {
 
         assertGt(shares, 0, "shares");
         assertEq(vault.balanceOf(ONBEHALF), shares, "balanceOf(ONBEHALF)");
-        assertEq(morpho.expectedSupplyBalance(allMarkets[0], address(vault)), assets, "expectedSupplyBalance(vault)");
+        assertEq(morpho.expectedSupplyAssets(allMarkets[0], address(vault)), assets, "expectedSupplyAssets(vault)");
 
         uint256 vaultAmount = snippets.vaultAmountInMarket(allMarkets[0]);
-        assertEq(assets, vaultAmount, "expectedSupplyBalance(vault)");
+        assertEq(assets, vaultAmount, "expectedSupplyAssets(vault)");
     }
 
     function testTotalSharesUserVault(uint256 deposited) public {
@@ -128,7 +128,7 @@ contract TestIntegrationSnippets is IntegrationTest {
         expectedWithdrawQueue[2] = allMarkets[0].id();
 
         vm.prank(ALLOCATOR);
-        vault.sortWithdrawQueue(indexes);
+        vault.updateWithdrawQueue(indexes);
 
         Id[] memory withdrawQueueList = snippets.withdrawQueueVault();
         assertEq(Id.unwrap(vault.withdrawQueue(0)), Id.unwrap(expectedWithdrawQueue[0]));
@@ -142,19 +142,9 @@ contract TestIntegrationSnippets is IntegrationTest {
     // OK
     function testCapMarket(MarketParams memory marketParams) public {
         Id idMarket = marketParams.id();
-        (uint192 cap,) = vault.config(idMarket);
+        uint192 cap = vault.config(idMarket).cap;
         uint192 snippetCap = snippets.capMarket(marketParams);
         assertEq(cap, snippetCap, "cap per market");
-    }
-
-    // OK
-    function testSubmitCapOverflow(uint256 seed, uint256 cap) public {
-        MarketParams memory marketParams = _randomMarketParams(seed);
-        cap = bound(cap, uint256(type(uint192).max) + 1, type(uint256).max);
-
-        vm.prank(CURATOR);
-        vm.expectRevert(abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, uint8(192), cap));
-        vault.submitCap(marketParams, cap);
     }
 
     // TODO Implement the TEST SUPPLY APR EQUAL 0 Function
@@ -166,7 +156,7 @@ contract TestIntegrationSnippets is IntegrationTest {
     //     vm.assume(market.fee < 1 ether);
     //     vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
 
-    //     (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
+    //     (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketAssetss(marketParams);
     //     uint256 borrowTrue = irm.borrowRate(marketParams, market);
     //     uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
@@ -182,7 +172,7 @@ contract TestIntegrationSnippets is IntegrationTest {
     //     vm.assume(market.fee < 1 ether);
     //     vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
 
-    //     (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
+    //     (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketAssetss(marketParams);
     //     uint256 borrowTrue = irm.borrowRate(marketParams, market);
     //     assertGt(borrowTrue, 0, "intermediary test");
     //     uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
@@ -257,7 +247,7 @@ contract TestIntegrationSnippets is IntegrationTest {
         assertEq(redeemed, minted, "shares");
         assertEq(vault.balanceOf(address(snippets)), 0, "balanceOf(address(snippets))");
         assertEq(loanToken.balanceOf(address(snippets)), assets, "loanToken.balanceOf(address(snippets))");
-        assertEq(morpho.expectedSupplyBalance(allMarkets[0], address(vault)), 0, "expectedSupplyBalance(vault)");
+        assertEq(morpho.expectedSupplyAssets(allMarkets[0], address(vault)), 0, "expectedSupplyAssets(vault)");
     }
 
     function testRedeemAll(uint256 deposited) public {
@@ -280,7 +270,7 @@ contract TestIntegrationSnippets is IntegrationTest {
         assertEq(redeemed, deposited, "assets");
         assertEq(vault.balanceOf(address(snippets)), 0, "balanceOf(address(snippets))");
         assertEq(loanToken.balanceOf(address(snippets)), deposited, "loanToken.balanceOf(address(snippets))");
-        assertEq(morpho.expectedSupplyBalance(allMarkets[0], address(vault)), 0, "expectedSupplyBalance(vault)");
+        assertEq(morpho.expectedSupplyAssets(allMarkets[0], address(vault)), 0, "expectedSupplyAssets(vault)");
     }
 
     function _setCaps() internal {

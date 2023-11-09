@@ -11,7 +11,7 @@ import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalances
 import {MathLib, WAD} from "@morpho-blue/libraries/MathLib.sol";
 
 import {Math} from "@openzeppelin/utils/math/Math.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
 
 contract MetamorphoSnippets {
     uint256 constant FEE = 0.2 ether; // 20%
@@ -46,7 +46,7 @@ contract MetamorphoSnippets {
     }
 
     function supplyQueueVault() public view returns (Id[] memory supplyQueueList) {
-        uint256 queueLength = vault.supplyQueueSize();
+        uint256 queueLength = vault.supplyQueueLength();
         supplyQueueList = new Id[](queueLength);
         for (uint256 i; i < queueLength; ++i) {
             supplyQueueList[i] = vault.supplyQueue(i);
@@ -55,7 +55,7 @@ contract MetamorphoSnippets {
     }
 
     function withdrawQueueVault() public view returns (Id[] memory withdrawQueueList) {
-        uint256 queueLength = vault.withdrawQueueSize();
+        uint256 queueLength = vault.supplyQueueLength();
         withdrawQueueList = new Id[](queueLength);
         for (uint256 i; i < queueLength; ++i) {
             withdrawQueueList[i] = vault.withdrawQueue(i);
@@ -65,7 +65,7 @@ contract MetamorphoSnippets {
 
     function capMarket(MarketParams memory marketParams) public view returns (uint192 cap) {
         Id id = marketParams.id();
-        (cap,) = vault.config(id);
+        cap = vault.config(id).cap;
     }
 
     // TO TEST
@@ -92,7 +92,7 @@ contract MetamorphoSnippets {
 
     function supplyAPRVault() public view returns (uint256 avgSupplyRate) {
         uint256 ratio;
-        uint256 queueLength = vault.withdrawQueueSize();
+        uint256 queueLength = vault.withdrawQueueLength();
 
         // TODO: Verify that the idle liquidity is taken into account
         uint256 totalAmount = totalDepositVault();
