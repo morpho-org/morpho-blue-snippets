@@ -10,8 +10,8 @@ import {IrmMock} from "@metamorpho/mocks/IrmMock.sol";
 import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
 import {MathLib, WAD} from "@morpho-blue/libraries/MathLib.sol";
 
-import {Math} from "@openzeppelin/utils/math/Math.sol";
-import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
+import {Math} from "@openzeppelin5/utils/math/Math.sol";
+import {ERC20} from "@openzeppelin5/token/ERC20/ERC20.sol";
 
 contract MetamorphoSnippets {
     uint256 constant FEE = 0.2 ether; // 20%

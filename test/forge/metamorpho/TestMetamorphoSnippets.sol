@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {MetamorphoSnippets} from "@snippets/metamorpho/MetamorphoSnippets.sol";
 import "@metamorpho-test/helpers/IntegrationTest.sol";
 import "@morpho-blue/libraries/SharesMathLib.sol";
-import {SafeCast} from "@openzeppelin/utils/math/SafeCast.sol";
+import {SafeCast} from "@openzeppelin5/utils/math/SafeCast.sol";
 
 contract TestIntegrationSnippets is IntegrationTest {
     MetamorphoSnippets internal snippets;
