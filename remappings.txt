@@ -3,7 +3,8 @@
 @morpho-blue/=lib/morpho-blue/src/
 @morpho-blue-test/=lib/morpho-blue/test/
 
-@openzeppelin/=lib/openzeppelin-contracts/contracts/
+@openzeppelin4/=/lib/openzeppelin-contracts/contracts/
+@openzeppelin5/=/lib/metamorpho/openzeppelin-contracts/contracts/
 
 @snippets/=src/
 
