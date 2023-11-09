@@ -1,6 +1,6 @@
 {
-  "name": "@morpho-org/blue-bundlers",
-  "description": "Morpho Blue Bundlers",
+  "name": "@morpho-org/morpho-blue-snippets",
+  "description": "Morpho Blue Snippets",
   "license": "GPL-2.0-or-later",
   "version": "0.0.2",
   "main": "dist/index.js",
@@ -8,19 +8,15 @@
     "dist",
     "package.json"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/morpho-labs/morpho-blue-bundlers.git"
-  },
   "author": {
     "name": "Morpho Labs",
     "email": "security@morpho.org",
     "url": "https://github.com/morpho-labs"
   },
   "bugs": {
-    "url": "https://github.com/morpho-labs/morpho-blue-bundlers/issues"
+    "url": "https://github.com/morpho-org/morpho-blue-snippets/issues"
   },
-  "homepage": "https://github.com/morpho-labs/morpho-blue-bundlers#readme",
+  "homepage": "https://github.com/morpho-org/morpho-blue-snippets#readme",
   "scripts": {
     "prepare": "husky install",
     "postinstall": "forge install",
