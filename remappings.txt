@@ -3,10 +3,13 @@
 @morpho-blue/=lib/morpho-blue/src/
 @morpho-blue-test/=lib/morpho-blue/test/
 
-@openzeppelin/=lib/openzeppelin-contracts/
+@openzeppelin4/=lib/openzeppelin-contracts/contracts/
+@openzeppelin5/=lib/metamorpho/lib/openzeppelin-contracts/contracts/
 
 @snippets/=src/
 
 @solmate/=lib/morpho-blue/lib/solmate/src/
 solmate/=lib/morpho-blue/lib/permit2/lib/solmate/
 
+@metamorpho/=lib/metamorpho/src/
+@metamorpho-test/=lib/metamorpho/test/forge/
