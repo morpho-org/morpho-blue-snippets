@@ -130,7 +130,7 @@ contract TestIntegrationSnippets is BaseTest {
         vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
 
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
-        uint256 borrowTrue = irm.borrowRate(marketParams, market);
+        uint256 borrowTrue = irm.borrowRateView(marketParams, market);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
         uint256 supplyTrue = borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
