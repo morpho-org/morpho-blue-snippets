@@ -34,7 +34,6 @@ contract MetamorphoSnippets {
         totalAssets = vault.lastTotalAssets();
     }
 
-    /// @dev note that one can adapt the address in the call to the morpho libs
     function vaultAssetsInMarket(MarketParams memory marketParams) public view returns (uint256 vaultAmount) {
         vaultAmount = morpho.expectedSupplyAssets(marketParams, address(vault));
     }
