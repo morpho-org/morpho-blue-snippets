@@ -85,27 +85,17 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         }
     }
 
-    // function onMorphoFlashLoan(uint256 amount, bytes memory data) external {
-    //     require(msg.sender == address(morpho));
-    //     (bytes4 selector, bytes memory _data) = abi.decode(data, (bytes4, bytes));
-    //     if (selector == this.flashLoan.selector) {
-    //         assertEq(loanToken.balanceOf(address(this)), amount);
-    //         loanToken.approve(address(morpho), amount);
-    //     }
-    // }
-
-    // leverage function
     function leverageMe(
         uint256 leverageFactor,
         uint256 loanLeverageFactor,
-        uint256 initialCollateral,
+        uint256 collateralInitAmount,
         SwapMock _swapMock,
         MarketParams calldata marketParams
     ) public {
         _setSwapMock(_swapMock);
 
-        uint256 collateralAssets = initialCollateral * leverageFactor;
-        uint256 loanAmount = initialCollateral * loanLeverageFactor;
+        uint256 collateralAssets = collateralInitAmount * leverageFactor;
+        uint256 loanAmount = collateralInitAmount * loanLeverageFactor;
 
         _approveMaxTo(address(marketParams.collateralToken), address(this));
 
@@ -139,19 +129,17 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         );
     }
 
-    // deleverage function
     function deLeverageMe(
         uint256 leverageFactor,
         uint256 loanLeverageFactor,
-        uint256 initialCollateral,
+        uint256 collateralInitAmount,
         SwapMock _swapMock,
         MarketParams calldata marketParams
     ) public returns (uint256 amountRepayed) {
-        // might be redundant
         _setSwapMock(_swapMock);
 
-        uint256 collateralAssets = initialCollateral * leverageFactor;
-        uint256 loanAmount = initialCollateral * loanLeverageFactor;
+        uint256 collateralAssets = collateralInitAmount * leverageFactor;
+        uint256 loanAmount = collateralInitAmount * loanLeverageFactor;
 
         _approveMaxTo(address(marketParams.collateralToken), address(this));
 

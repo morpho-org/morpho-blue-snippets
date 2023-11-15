@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.0;
 
 import {ORACLE_PRICE_SCALE} from "@morpho-blue/libraries/ConstantsLib.sol";

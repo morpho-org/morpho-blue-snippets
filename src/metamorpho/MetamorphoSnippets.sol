@@ -14,7 +14,6 @@ import {Math} from "@openzeppelin/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
 
 contract MetamorphoSnippets {
-    uint256 constant FEE = 0.2 ether; // 20%
     IMorpho public immutable morpho;
     IMetaMorpho public immutable vault;
 
@@ -69,7 +68,6 @@ contract MetamorphoSnippets {
         cap = vault.config(id).cap;
     }
 
-    // TO TEST
     function supplyAPRMarket(MarketParams memory marketParams, Market memory market)
         public
         view
@@ -85,10 +83,6 @@ contract MetamorphoSnippets {
 
         supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
     }
-
-    // TODO: edit comment
-    // a amount at 6%, B amount at 3 %:
-    // (a*6%) + (B*3%) / (a+b+ IDLE)
 
     function supplyAPRVault() public view returns (uint256 avgSupplyRate) {
         uint256 ratio;
@@ -121,16 +115,26 @@ contract MetamorphoSnippets {
         shares = vault.deposit(assets, onBehalf);
     }
 
-    function withdrawFromVault(uint256 assets, address onBehalf) public returns (uint256 redeemed) {
+    // withdraw from the vault a nb of asset
+    function withdrawFromVaultAmount(uint256 assets, address onBehalf) public returns (uint256 redeemed) {
         address receiver = onBehalf;
         redeemed = vault.withdraw(assets, receiver, onBehalf);
     }
 
-    function redeemAllFromVault(address receiver) public returns (uint256 redeemed) {
+    // maxWithdraw from the vault
+    function withdrawFromVaultAll(address onBehalf) public returns (uint256 redeemed) {
+        address receiver = onBehalf;
+        uint256 assets = vault.maxWithdraw(address(this));
+        redeemed = vault.withdraw(assets, receiver, onBehalf);
+    }
+
+    // maxRedeem from the vault
+    function redeemAllFromVault(address onBehalf) public returns (uint256 redeemed) {
+        address receiver = onBehalf;
         uint256 maxToRedeem = vault.maxRedeem(address(this));
-        redeemed = vault.redeem(maxToRedeem, receiver, address(this));
+        redeemed = vault.redeem(maxToRedeem, receiver, onBehalf);
     }
 
     // TODO:
-    // // Reallocation example
+    // Reallocation example
 }

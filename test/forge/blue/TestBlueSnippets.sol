@@ -10,7 +10,7 @@ import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
 import {SharesMathLib} from "@morpho-blue/libraries/SharesMathLib.sol";
 
 // we need to import everything in there
-import "@morpho-blue-test/forge/BaseTest.sol";
+import "@morpho-blue-test/BaseTest.sol";
 
 contract TestIntegrationSnippets is BaseTest {
     using MathLib for uint256;

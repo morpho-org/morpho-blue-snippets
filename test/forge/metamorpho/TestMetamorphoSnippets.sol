@@ -163,8 +163,15 @@ contract TestIntegrationSnippets is IntegrationTest {
         uint256 supplyTrue = borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
 
         uint256 supplyToTest = snippets.supplyAPRMarket(marketParams, market);
-        assertGt(supplyTrue, 0, "supply rate ==0");
-        assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPR test");
+
+        // handling in if-else the situation where utilization = 0 otherwise too many rejects
+        if (utilization == 0) {
+            assertEq(supplyTrue, 0, "supply rate ==0");
+            assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPR test");
+        } else {
+            assertGt(supplyTrue, 0, "supply rate ==0");
+            assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPR test");
+        }
     }
 
     // TODO: enhance the test
@@ -272,7 +279,7 @@ contract TestIntegrationSnippets is IntegrationTest {
 
         uint256 shares = vault.deposit(deposited, address(snippets));
 
-        uint256 redeemed = snippets.withdrawFromVault(withdrawn, address(snippets));
+        uint256 redeemed = snippets.withdrawFromVaultAmount(withdrawn, address(snippets));
         vm.stopPrank();
 
         assertEq(vault.balanceOf(address(snippets)), shares - redeemed, "balanceOf(address(snippets))");
@@ -293,7 +300,7 @@ contract TestIntegrationSnippets is IntegrationTest {
 
         assertEq(vault.maxWithdraw(address(snippets)), assets, "maxWithdraw(ONBEHALF)");
 
-        uint256 redeemed = snippets.withdrawFromVault(assets, address(snippets));
+        uint256 redeemed = snippets.withdrawFromVaultAll(address(snippets));
         vm.stopPrank();
 
         assertEq(redeemed, minted, "shares");
@@ -302,7 +309,7 @@ contract TestIntegrationSnippets is IntegrationTest {
         assertEq(morpho.expectedSupplyAssets(allMarkets[0], address(vault)), 0, "expectedSupplyAssets(vault)");
     }
 
-    function testRedeemAll(uint256 deposited) public {
+    function testRedeemAllFromVault(uint256 deposited) public {
         deposited = bound(deposited, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
 
         loanToken.setBalance(address(snippets), deposited);

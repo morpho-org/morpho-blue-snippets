@@ -1,15 +1,14 @@
 @forge-std/=lib/morpho-blue/lib/forge-std/src/
 
 @morpho-blue/=lib/morpho-blue/src/
-@morpho-blue-test/=lib/morpho-blue/test/
+@morpho-blue-test/=lib/morpho-blue/test/forge/
 
 @openzeppelin4/=lib/openzeppelin-contracts/contracts/
 @openzeppelin/=lib/metamorpho/lib/openzeppelin-contracts/contracts/
 
 @snippets/=src/
 
-@solmate/=lib/morpho-blue/lib/solmate/src/
-solmate/=lib/morpho-blue/lib/permit2/lib/solmate/
+@solmate/=lib/solmate/src/
 
 @metamorpho/=lib/metamorpho/src/
 @metamorpho-test/=lib/metamorpho/test/forge/
