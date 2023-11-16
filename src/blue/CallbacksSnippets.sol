@@ -128,7 +128,7 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
 
         _approveMaxTo(address(marketParams.collateralToken), address(this));
 
-        uint256 repaidShares = 0;
+        uint256 repaidShares;
 
         (seizedAssets, repaidAssets) =
             morpho.liquidate(marketParams, borrower, assetsToSeize, repaidShares, abi.encode(loanAmountToRepay));
