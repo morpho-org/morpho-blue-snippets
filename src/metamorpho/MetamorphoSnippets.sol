@@ -10,14 +10,12 @@ import {IrmMock} from "@metamorpho/mocks/IrmMock.sol";
 import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
 import {MathLib, WAD} from "@morpho-blue/libraries/MathLib.sol";
 
-import {Math} from "@openzeppelin5/utils/math/Math.sol";
-import {ERC20} from "@openzeppelin5/token/ERC20/ERC20.sol";
+import {Math} from "@openzeppelin/utils/math/Math.sol";
+import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
 
 contract MetamorphoSnippets {
-    uint256 constant FEE = 0.2 ether; // 20%
-
-    IMetaMorpho public immutable vault;
     IMorpho public immutable morpho;
+    IMetaMorpho public immutable vault;
 
     using MathLib for uint256;
     using Math for uint256;
@@ -36,8 +34,7 @@ contract MetamorphoSnippets {
         totalAssets = vault.lastTotalAssets();
     }
 
-    /// @dev note that one can adapt the address in the call to the morpho contract
-    function vaultAmountInMarket(MarketParams memory marketParams) public view returns (uint256 vaultAmount) {
+    function vaultAssetsInMarket(MarketParams memory marketParams) public view returns (uint256 vaultAmount) {
         vaultAmount = morpho.expectedSupplyAssets(marketParams, address(vault));
     }
 
@@ -45,6 +42,7 @@ contract MetamorphoSnippets {
         totalSharesUser = vault.balanceOf(user);
     }
 
+    // The following function will return the current supply queue of the vault
     function supplyQueueVault() public view returns (Id[] memory supplyQueueList) {
         uint256 queueLength = vault.supplyQueueLength();
         supplyQueueList = new Id[](queueLength);
@@ -54,6 +52,7 @@ contract MetamorphoSnippets {
         return supplyQueueList;
     }
 
+    // The following function will return the current withdraw queue of the vault
     function withdrawQueueVault() public view returns (Id[] memory withdrawQueueList) {
         uint256 queueLength = vault.supplyQueueLength();
         withdrawQueueList = new Id[](queueLength);
@@ -68,7 +67,6 @@ contract MetamorphoSnippets {
         cap = vault.config(id).cap;
     }
 
-    // TO TEST
     function supplyAPRMarket(MarketParams memory marketParams, Market memory market)
         public
         view
@@ -85,11 +83,6 @@ contract MetamorphoSnippets {
         supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
     }
 
-    // TODO: edit comment + Test function
-    // same function as Morpho Blue Snippets
-    // a amount at 6%, B amount at 3 %:
-    // (a*6%) + (B*3%) / (a+b+ IDLE)
-
     function supplyAPRVault() public view returns (uint256 avgSupplyRate) {
         uint256 ratio;
         uint256 queueLength = vault.withdrawQueueLength();
@@ -100,7 +93,6 @@ contract MetamorphoSnippets {
         for (uint256 i; i < queueLength; ++i) {
             Id idMarket = vault.withdrawQueue(i);
 
-            // To change once the cantina-review branch is merged
             (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
                 (morpho.idToMarketParams(idMarket));
 
@@ -108,7 +100,7 @@ contract MetamorphoSnippets {
             Market memory market = morpho.market(idMarket);
 
             uint256 currentSupplyAPR = supplyAPRMarket(marketParams, market);
-            uint256 vaultAsset = vaultAmountInMarket(marketParams);
+            uint256 vaultAsset = vaultAssetsInMarket(marketParams);
             ratio += currentSupplyAPR.wMulDown(vaultAsset);
         }
 
@@ -122,14 +114,24 @@ contract MetamorphoSnippets {
         shares = vault.deposit(assets, onBehalf);
     }
 
-    function withdrawFromVault(uint256 assets, address onBehalf) public returns (uint256 redeemed) {
+    // withdraw from the vault a nb of asset
+    function withdrawFromVaultAmount(uint256 assets, address onBehalf) public returns (uint256 redeemed) {
         address receiver = onBehalf;
         redeemed = vault.withdraw(assets, receiver, onBehalf);
     }
 
-    function redeemAllFromVault(address receiver) public returns (uint256 redeemed) {
+    // maxWithdraw from the vault
+    function withdrawFromVaultAll(address onBehalf) public returns (uint256 redeemed) {
+        address receiver = onBehalf;
+        uint256 assets = vault.maxWithdraw(address(this));
+        redeemed = vault.withdraw(assets, receiver, onBehalf);
+    }
+
+    // maxRedeem from the vault
+    function redeemAllFromVault(address onBehalf) public returns (uint256 redeemed) {
+        address receiver = onBehalf;
         uint256 maxToRedeem = vault.maxRedeem(address(this));
-        redeemed = vault.redeem(maxToRedeem, receiver, address(this));
+        redeemed = vault.redeem(maxToRedeem, receiver, onBehalf);
     }
 
     // TODO:

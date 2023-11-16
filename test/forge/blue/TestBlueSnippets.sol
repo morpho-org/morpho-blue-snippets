@@ -10,7 +10,7 @@ import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
 import {SharesMathLib} from "@morpho-blue/libraries/SharesMathLib.sol";
 
 // we need to import everything in there
-import "@morpho-blue-test/forge/BaseTest.sol";
+import "@morpho-blue-test/BaseTest.sol";
 
 contract TestIntegrationSnippets is BaseTest {
     using MathLib for uint256;
@@ -130,7 +130,7 @@ contract TestIntegrationSnippets is BaseTest {
         vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
 
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
-        uint256 borrowTrue = irm.borrowRate(marketParams, market);
+        uint256 borrowTrue = irm.borrowRateView(marketParams, market);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
         uint256 supplyTrue = borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
