@@ -12,93 +12,83 @@ contract CallbacksIntegrationTest is BaseTest {
     using MarketParamsLib for MarketParams;
     using SharesMathLib for uint256;
 
+    address internal USER;
+
     SwapMock internal swapMock;
 
     CallbacksSnippets public snippets;
 
     function setUp() public virtual override {
         super.setUp();
+
+        USER = makeAddr("User");
+
         swapMock = new SwapMock(address(collateralToken), address(loanToken), address(oracle));
         snippets = new CallbacksSnippets(address(morpho)); // todos add the addres of WETH, lido, wsteth
+
+        vm.startPrank(USER);
+        collateralToken.approve(address(snippets), type(uint256).max);
+        morpho.setAuthorization(address(snippets), true);
+        vm.stopPrank();
     }
 
-    function testLeverageMe(uint256 collateralInitAmount) public {
+    function testLeverageMe(uint256 initAmountCollateral) public {
         // INITIALISATION
 
         uint256 leverageFactor = 4; // nb to set
-        uint256 loanLeverageFactor = 3; // max here would be 3.2 = 0.8 * leverageFactor
 
-        collateralInitAmount = bound(collateralInitAmount, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT / leverageFactor);
-
-        collateralToken.setBalance(address(snippets), collateralInitAmount);
-
-        uint256 collateralAmount = collateralInitAmount * leverageFactor;
+        initAmountCollateral = bound(initAmountCollateral, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT / leverageFactor);
+        uint256 finalAmountCollateral = initAmountCollateral * leverageFactor;
 
         oracle.setPrice(ORACLE_PRICE_SCALE);
 
         // supplying enough liquidity in the market
         vm.startPrank(SUPPLIER);
-        loanToken.setBalance(address(SUPPLIER), collateralAmount);
-        morpho.supply(marketParams, collateralAmount, 0, address(SUPPLIER), hex"");
+        loanToken.setBalance(address(SUPPLIER), finalAmountCollateral);
+        morpho.supply(marketParams, finalAmountCollateral, 0, address(SUPPLIER), hex"");
         vm.stopPrank();
 
-        // approve the swap contract
-        vm.startPrank(address(snippets));
-        loanToken.approve(address(morpho), type(uint256).max);
-        loanToken.approve(address(swapMock), type(uint256).max);
-        collateralToken.approve(address(morpho), type(uint256).max);
-        collateralToken.approve(address(swapMock), type(uint256).max);
-        vm.stopPrank();
+        collateralToken.setBalance(USER, initAmountCollateral);
+        vm.prank(USER);
+        snippets.leverageMe(leverageFactor, initAmountCollateral, swapMock, marketParams);
 
-        uint256 loanAmount = collateralInitAmount * loanLeverageFactor;
+        uint256 loanAmount = initAmountCollateral * (leverageFactor - 1);
 
-        snippets.leverageMe(leverageFactor, loanLeverageFactor, collateralInitAmount, swapMock, marketParams);
-
-        assertGt(morpho.borrowShares(marketParams.id(), address(snippets)), 0, "no borrow");
-        assertEq(morpho.collateral(marketParams.id(), address(snippets)), collateralAmount, "no collateral");
-        assertEq(morpho.expectedBorrowAssets(marketParams, address(snippets)), loanAmount, "no collateral");
+        assertGt(morpho.borrowShares(marketParams.id(), USER), 0, "no borrow");
+        assertEq(morpho.collateral(marketParams.id(), USER), finalAmountCollateral, "no collateral");
+        assertEq(morpho.expectedBorrowAssets(marketParams, USER), loanAmount, "no collateral");
     }
 
-    function testDeLeverageMe(uint256 collateralInitAmount) public {
+    function testDeLeverageMe(uint256 initAmountCollateral) public {
         /// same as testLeverageMe
 
         uint256 leverageFactor = 4; // nb to set
-        uint256 loanLeverageFactor = 3; // max here would be 3.2 = 0.8 * leverageFactor
 
-        collateralInitAmount = bound(collateralInitAmount, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT / leverageFactor);
-
-        collateralToken.setBalance(address(snippets), collateralInitAmount);
-
-        uint256 collateralAmount = collateralInitAmount * leverageFactor;
+        initAmountCollateral = bound(initAmountCollateral, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT / leverageFactor);
+        uint256 finalAmountCollateral = initAmountCollateral * leverageFactor;
 
         oracle.setPrice(ORACLE_PRICE_SCALE);
 
         vm.startPrank(SUPPLIER);
-        loanToken.setBalance(address(SUPPLIER), collateralAmount);
-        morpho.supply(marketParams, collateralAmount, 0, address(SUPPLIER), hex"");
+        loanToken.setBalance(address(SUPPLIER), finalAmountCollateral);
+        morpho.supply(marketParams, finalAmountCollateral, 0, address(SUPPLIER), hex"");
         vm.stopPrank();
 
-        vm.startPrank(address(snippets));
-        loanToken.approve(address(morpho), type(uint256).max);
-        loanToken.approve(address(swapMock), type(uint256).max);
-        collateralToken.approve(address(morpho), type(uint256).max);
-        collateralToken.approve(address(swapMock), type(uint256).max);
-        vm.stopPrank();
+        uint256 loanAmount = initAmountCollateral * (leverageFactor - 1);
 
-        uint256 loanAmount = collateralInitAmount * loanLeverageFactor;
+        collateralToken.setBalance(USER, initAmountCollateral);
+        vm.prank(USER);
+        snippets.leverageMe(leverageFactor, initAmountCollateral, swapMock, marketParams);
 
-        snippets.leverageMe(leverageFactor, loanLeverageFactor, collateralInitAmount, swapMock, marketParams);
-
-        assertGt(morpho.borrowShares(marketParams.id(), address(snippets)), 0, "no borrow");
-        assertEq(morpho.collateral(marketParams.id(), address(snippets)), collateralAmount, "no collateral");
-        assertEq(morpho.expectedBorrowAssets(marketParams, address(snippets)), loanAmount, "no collateral");
+        assertGt(morpho.borrowShares(marketParams.id(), USER), 0, "no borrow");
+        assertEq(morpho.collateral(marketParams.id(), USER), finalAmountCollateral, "no collateral");
+        assertEq(morpho.expectedBorrowAssets(marketParams, USER), loanAmount, "no collateral");
 
         /// end of testLeverageMe
+        vm.prank(USER);
+        uint256 amountRepayed = snippets.deLeverageMe(swapMock, marketParams);
 
-        uint256 amountRepayed =
-            snippets.deLeverageMe(leverageFactor, loanLeverageFactor, collateralInitAmount, swapMock, marketParams);
-
-        assertEq(morpho.borrowShares(marketParams.id(), address(snippets)), 0, "no borrow");
+        assertEq(morpho.borrowShares(marketParams.id(), USER), 0, "no borrow");
         assertEq(amountRepayed, loanAmount, "no repaid");
     }
 

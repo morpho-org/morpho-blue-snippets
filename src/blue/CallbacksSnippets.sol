@@ -12,25 +12,29 @@ import {Id, IMorpho, MarketParams, Market} from "@morpho-blue/interfaces/IMorpho
 import {SafeTransferLib, ERC20} from "@solmate/utils/SafeTransferLib.sol";
 import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
 import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
-import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 
 /*
-    The following implementation regarding the swap mocked has been done for educationnal purpose
-    the swap mock is giving back, thanks to the orace of the market, the exact value in terms of amount between a
-    collateral and a loan token
+The SwapMock contract only has educational purpose. It simulates a contract allowing to swap a token against another,
+with the exact price returned by an arbitrary oracle.
+
+The introduction of the SwapMock contract is to showcase the functioning of leverage on Morpho Blue (using callbacks)
+without highlighting any known DEX.
+
+Therefore, SwapMock must be replaced (by the swap of your choice) in your implementation. The functions
+`swapCollatToLoan` and `swapLoanToCollat` must as well be adapted to match the ones of the chosen swap contract.
     
-    One should be aware that has to be taken into account on potential swap:
-     1. slippage
-     2. fees
+One should be aware that has to be taken into account on potential swap:
+    1. slippage
+    2. fees
 
-
-     add a definition of what snippets are
+add a definition of what snippets are
     */
 contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallback, IMorphoLiquidateCallback {
     using MathLib for uint256;
     using MorphoLib for IMorpho;
     using MarketParamsLib for MarketParams;
+    using SafeTransferLib for ERC20;
 
     IMorpho public immutable morpho;
     SwapMock swapMock;
@@ -42,68 +46,74 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
     /* 
     
     Callbacks
-    remember that at a given market, one can leverage itself up to 1/1-LLTV,
-    leverageFactor so for an LLTV of 80% -> 5 is the max leverage factor
-    loanLeverageFactor max loanLeverageFactor would have to be on LLTV * leverageFactor to be safe
+
+    Reminder: for a given market, one can leverage his position up to a leverageFactor = 1/1-LLTV,
+    
+    Example : with a LLTV of 80% -> 5 is the max leverage factor
     
     */
 
-    function onMorphoSupplyCollateral(uint256 amount, bytes calldata data) external {
-        require(msg.sender == address(morpho));
-        (bytes4 selector, bytes memory _data) = abi.decode(data, (bytes4, bytes));
-        if (selector == this.leverageMe.selector) {
-            (uint256 toBorrow, MarketParams memory marketParams) = abi.decode(_data, (uint256, MarketParams));
-            (uint256 amountBis,) = morpho.borrow(marketParams, toBorrow, 0, address(this), address(this));
-            ERC20(marketParams.collateralToken).approve(address(swapMock), amount);
+    function onMorphoSupplyCollateral(uint256 amount, bytes calldata data) external onlyMorpho {
+        (uint256 toBorrow, MarketParams memory marketParams, address user) =
+            abi.decode(data, (uint256, MarketParams, address));
+        (uint256 amountBis,) = morpho.borrow(marketParams, toBorrow, 0, user, address(this));
 
-            // Logic to Implement. Following example is a swap, could be a 'unwrap + stake + wrap staked' for
-            // wETH(wstETH) Market
-            swapMock.swapLoanToCollat(amountBis);
-        }
+        ERC20(marketParams.loanToken).approve(address(swapMock), amount);
+
+        // Logic to Implement. Following example is a swap, could be a 'unwrap + stake + wrap staked' for
+        // wETH(wstETH) Market
+        // _approveMaxTo(marketParams.);
+        swapMock.swapLoanToCollat(amountBis);
     }
 
     function onMorphoLiquidate(uint256 repaidAssets, bytes calldata data) external onlyMorpho {
-        require(msg.sender == address(morpho));
-        (bytes4 selector, bytes memory _data) = abi.decode(data, (bytes4, bytes));
-        if (selector == this.liquidateWithoutCollat.selector) {
-            (uint256 toSwap, MarketParams memory marketParams) = abi.decode(_data, (uint256, MarketParams));
-            uint256 returnedAmount = swapMock.swapCollatToLoan(toSwap);
-            require(returnedAmount > repaidAssets); // Add logic for gas cost threshold for instance
-            ERC20(marketParams.loanToken).approve(address(swapMock), returnedAmount);
-        }
+        (uint256 toSwap, MarketParams memory marketParams) = abi.decode(data, (uint256, MarketParams));
+        uint256 returnedAmount = swapMock.swapCollatToLoan(toSwap);
+        require(returnedAmount > repaidAssets); // Add logic for gas cost threshold for instance
+        ERC20(marketParams.loanToken).approve(address(swapMock), returnedAmount);
     }
 
-    function onMorphoRepay(uint256 amount, bytes calldata data) external {
-        require(msg.sender == address(morpho));
-        (bytes4 selector, bytes memory _data) = abi.decode(data, (bytes4, bytes));
-        if (selector == this.deLeverageMe.selector) {
-            (uint256 toWithdraw, MarketParams memory marketParams) = abi.decode(_data, (uint256, MarketParams));
-            morpho.withdrawCollateral(marketParams, toWithdraw, address(this), address(this));
+    function onMorphoRepay(uint256 amount, bytes calldata data) external onlyMorpho {
+        (MarketParams memory marketParams, address user) = abi.decode(data, (MarketParams, address));
+        uint256 toWithdraw = morpho.collateral(marketParams.id(), user);
 
-            ERC20(marketParams.loanToken).approve(address(morpho), amount);
-            swapMock.swapCollatToLoan(toWithdraw);
-        }
+        morpho.withdrawCollateral(marketParams, toWithdraw, user, address(this));
+
+        ERC20(marketParams.collateralToken).approve(address(swapMock), amount);
+        swapMock.swapCollatToLoan(amount);
     }
 
     function leverageMe(
         uint256 leverageFactor,
-        uint256 loanLeverageFactor,
-        uint256 collateralInitAmount,
+        uint256 initAmountCollateral,
         SwapMock _swapMock,
         MarketParams calldata marketParams
     ) public {
         _setSwapMock(_swapMock);
 
-        uint256 collateralAssets = collateralInitAmount * leverageFactor;
-        uint256 loanAmount = collateralInitAmount * loanLeverageFactor;
+        ERC20(marketParams.collateralToken).safeTransferFrom(msg.sender, address(this), initAmountCollateral);
 
-        _approveMaxTo(address(marketParams.collateralToken), address(this));
+        uint256 finalAmountcollateral = initAmountCollateral * leverageFactor;
+
+        // The amount of LoanToken to be borrowed (and then swapped against collateralToken) to perform the callback is
+        // the following :
+
+        // (leverageFactor - 1) * InitAmountCollateral.mulDivDown.(ORACLE_PRICE_SCALE, IOracle(oracle).price())
+
+        // However here we have price = `ORACLE_PRICE_SCALE`, so loanAmount = (leverageFactor - 1) *
+        // InitAmountCollateral
+
+        // Warning : When using real swaps, price doesn't equal `ORACLE_PRICE_SCALE` anymore, so
+        // mulDivDown.(ORACLE_PRICE_SCALE, IOracle(oracle).price()) can't be removed from the calculus, and therefore an
+        // oracle should be used to compute the correct amount.
+        // Warning : When using real swaps, fees and slippage should also be taken into account to compute `loanAmount`.
+
+        uint256 loanAmount = (leverageFactor - 1) * initAmountCollateral;
+
+        _approveMaxTo(marketParams.collateralToken, address(morpho));
 
         morpho.supplyCollateral(
-            marketParams,
-            collateralAssets,
-            address(this),
-            abi.encode(this.leverageMe.selector, abi.encode(loanAmount, marketParams))
+            marketParams, finalAmountcollateral, msg.sender, abi.encode(loanAmount, marketParams, msg.sender)
         );
     }
 
@@ -120,35 +130,24 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
 
         uint256 repaidShares = 0;
 
-        (seizedAssets, repaidAssets) = morpho.liquidate(
-            marketParams,
-            borrower,
-            assetsToSeize,
-            repaidShares,
-            abi.encode(this.liquidateWithoutCollat.selector, abi.encode(loanAmountToRepay))
-        );
+        (seizedAssets, repaidAssets) =
+            morpho.liquidate(marketParams, borrower, assetsToSeize, repaidShares, abi.encode(loanAmountToRepay));
     }
 
-    function deLeverageMe(
-        uint256 leverageFactor,
-        uint256 loanLeverageFactor,
-        uint256 collateralInitAmount,
-        SwapMock _swapMock,
-        MarketParams calldata marketParams
-    ) public returns (uint256 amountRepayed) {
+    function deLeverageMe(SwapMock _swapMock, MarketParams calldata marketParams)
+        public
+        returns (uint256 amountRepayed)
+    {
         _setSwapMock(_swapMock);
 
-        uint256 collateralAssets = collateralInitAmount * leverageFactor;
-        uint256 loanAmount = collateralInitAmount * loanLeverageFactor;
+        uint256 totalShares = morpho.borrowShares(marketParams.id(), msg.sender);
 
-        _approveMaxTo(address(marketParams.collateralToken), address(this));
+        _approveMaxTo(marketParams.loanToken, address(morpho));
 
-        (amountRepayed,) = morpho.repay(
-            marketParams,
-            loanAmount,
-            0,
-            address(this),
-            abi.encode(this.deLeverageMe.selector, abi.encode(collateralAssets, marketParams))
+        (amountRepayed,) = morpho.repay(marketParams, 0, totalShares, msg.sender, abi.encode(marketParams, msg.sender));
+
+        ERC20(marketParams.collateralToken).safeTransfer(
+            msg.sender, ERC20(marketParams.collateralToken).balanceOf(msg.sender)
         );
     }
 
