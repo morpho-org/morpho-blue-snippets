@@ -24,7 +24,7 @@ contract CallbacksIntegrationTest is BaseTest {
         USER = makeAddr("User");
 
         swapMock = new SwapMock(address(collateralToken), address(loanToken), address(oracle));
-        snippets = new CallbacksSnippets(address(morpho)); // todos add the addres of WETH, lido, wsteth
+        snippets = new CallbacksSnippets(address(morpho), address(swapMock));
 
         vm.startPrank(USER);
         collateralToken.approve(address(snippets), type(uint256).max);
@@ -50,7 +50,7 @@ contract CallbacksIntegrationTest is BaseTest {
 
         collateralToken.setBalance(USER, initAmountCollateral);
         vm.prank(USER);
-        snippets.leverageMe(leverageFactor, initAmountCollateral, swapMock, marketParams);
+        snippets.leverageMe(leverageFactor, initAmountCollateral, marketParams);
 
         uint256 loanAmount = initAmountCollateral * (leverageFactor - 1);
 
@@ -78,7 +78,7 @@ contract CallbacksIntegrationTest is BaseTest {
 
         collateralToken.setBalance(USER, initAmountCollateral);
         vm.prank(USER);
-        snippets.leverageMe(leverageFactor, initAmountCollateral, swapMock, marketParams);
+        snippets.leverageMe(leverageFactor, initAmountCollateral, marketParams);
 
         assertGt(morpho.borrowShares(marketParams.id(), USER), 0, "no borrow");
         assertEq(morpho.collateral(marketParams.id(), USER), finalAmountCollateral, "no collateral");
@@ -86,7 +86,7 @@ contract CallbacksIntegrationTest is BaseTest {
 
         /// end of testLeverageMe
         vm.prank(USER);
-        uint256 amountRepayed = snippets.deLeverageMe(swapMock, marketParams);
+        uint256 amountRepayed = snippets.deLeverageMe(marketParams);
 
         assertEq(morpho.borrowShares(marketParams.id(), USER), 0, "no borrow");
         assertEq(amountRepayed, loanAmount, "no repaid");

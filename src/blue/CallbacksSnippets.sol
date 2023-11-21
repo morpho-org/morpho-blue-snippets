@@ -14,6 +14,7 @@ import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
 import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 
+import {ISwap} from "@snippets/blue/interfaces/ISwap.sol";
 /*
 The SwapMock contract only has educational purpose. It simulates a contract allowing to swap a token against another,
 with the exact price returned by an arbitrary oracle.
@@ -30,6 +31,7 @@ One should be aware that has to be taken into account on potential swap:
 
 add a definition of what snippets are
     */
+
 contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallback, IMorphoLiquidateCallback {
     using MathLib for uint256;
     using MorphoLib for IMorpho;
@@ -37,10 +39,11 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
     using SafeTransferLib for ERC20;
 
     IMorpho public immutable morpho;
-    SwapMock swapMock;
+    ISwap public swapMock;
 
-    constructor(address morphoAddress) {
+    constructor(address morphoAddress, address swapAddress) {
         morpho = IMorpho(morphoAddress);
+        swapMock = ISwap(swapAddress);
     }
 
     /* 
@@ -83,14 +86,9 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         swapMock.swapCollatToLoan(amount);
     }
 
-    function leverageMe(
-        uint256 leverageFactor,
-        uint256 initAmountCollateral,
-        SwapMock _swapMock,
-        MarketParams calldata marketParams
-    ) public {
-        _setSwapMock(_swapMock);
-
+    function leverageMe(uint256 leverageFactor, uint256 initAmountCollateral, MarketParams calldata marketParams)
+        public
+    {
         ERC20(marketParams.collateralToken).safeTransferFrom(msg.sender, address(this), initAmountCollateral);
 
         uint256 finalAmountcollateral = initAmountCollateral * leverageFactor;
@@ -121,11 +119,8 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         address borrower,
         uint256 loanAmountToRepay,
         uint256 assetsToSeize,
-        SwapMock _swapMock,
         MarketParams calldata marketParams
     ) public returns (uint256 seizedAssets, uint256 repaidAssets) {
-        _setSwapMock(_swapMock);
-
         _approveMaxTo(address(marketParams.collateralToken), address(this));
 
         uint256 repaidShares;
@@ -134,12 +129,7 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
             morpho.liquidate(marketParams, borrower, assetsToSeize, repaidShares, abi.encode(loanAmountToRepay));
     }
 
-    function deLeverageMe(SwapMock _swapMock, MarketParams calldata marketParams)
-        public
-        returns (uint256 amountRepayed)
-    {
-        _setSwapMock(_swapMock);
-
+    function deLeverageMe(MarketParams calldata marketParams) public returns (uint256 amountRepayed) {
         uint256 totalShares = morpho.borrowShares(marketParams.id(), msg.sender);
 
         _approveMaxTo(marketParams.loanToken, address(morpho));
@@ -160,9 +150,5 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         if (ERC20(asset).allowance(address(this), spender) == 0) {
             ERC20(asset).approve(spender, type(uint256).max);
         }
-    }
-
-    function _setSwapMock(SwapMock _swapMock) public {
-        swapMock = _swapMock;
     }
 }
