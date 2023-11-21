@@ -46,6 +46,11 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         swapMock = ISwap(swapAddress);
     }
 
+    modifier onlyMorpho() {
+        require(msg.sender == address(morpho), "msg.sender should be Morpho Blue");
+        _;
+    }
+
     /* 
     
     Callbacks
@@ -139,11 +144,6 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         ERC20(marketParams.collateralToken).safeTransfer(
             msg.sender, ERC20(marketParams.collateralToken).balanceOf(msg.sender)
         );
-    }
-
-    modifier onlyMorpho() {
-        require(msg.sender == address(morpho), "msg.sender should be Morpho Blue");
-        _;
     }
 
     function _approveMaxTo(address asset, address spender) internal {
