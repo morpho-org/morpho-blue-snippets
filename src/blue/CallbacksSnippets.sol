@@ -7,9 +7,8 @@ import {
     IMorphoRepayCallback
 } from "@morpho-blue/interfaces/IMorphoCallbacks.sol";
 
-import {Id, IMorpho, MarketParams, Market} from "@morpho-blue/interfaces/IMorpho.sol";
+import {Id, IMorpho, MarketParams} from "@morpho-blue/interfaces/IMorpho.sol";
 import {SafeTransferLib, ERC20} from "@solmate/utils/SafeTransferLib.sol";
-import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
 import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 
