@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@morpho-blue-test/BaseTest.sol";
+import {ISwap} from "@snippets/blue/interfaces/ISwap.sol";
 import {SwapMock} from "@snippets/blue/mocks/SwapMock.sol";
 import {CallbacksSnippets} from "@snippets/blue/CallbacksSnippets.sol";
 
@@ -14,7 +15,7 @@ contract CallbacksIntegrationTest is BaseTest {
 
     address internal USER;
 
-    SwapMock internal swapMock;
+    ISwap internal swapper;
 
     CallbacksSnippets public snippets;
 
@@ -23,8 +24,8 @@ contract CallbacksIntegrationTest is BaseTest {
 
         USER = makeAddr("User");
 
-        swapMock = new SwapMock(address(collateralToken), address(loanToken), address(oracle));
-        snippets = new CallbacksSnippets(address(morpho), address(swapMock));
+        swapper = ISwap(address(new SwapMock(address(collateralToken), address(loanToken), address(oracle))));
+        snippets = new CallbacksSnippets(morpho, swapper);
 
         vm.startPrank(USER);
         collateralToken.approve(address(snippets), type(uint256).max);

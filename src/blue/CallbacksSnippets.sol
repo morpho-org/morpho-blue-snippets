@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.0;
 
-import {SwapMock} from "@snippets/blue/mocks/SwapMock.sol";
+// import {SwapMock} from "@snippets/blue/mocks/SwapMock.sol";
 import {
     IMorphoSupplyCollateralCallback,
     IMorphoLiquidateCallback,
@@ -16,20 +16,20 @@ import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 
 import {ISwap} from "@snippets/blue/interfaces/ISwap.sol";
 /*
-The SwapMock contract only has educational purpose. It simulates a contract allowing to swap a token against another,
-with the exact price returned by an arbitrary oracle.
+The following swapper contract only has educational purpose. It simulates a contract allowing to swap a token against
+another, with the exact price returned by an arbitrary oracle.
 
-The introduction of the SwapMock contract is to showcase the functioning of leverage on Morpho Blue (using callbacks)
+The introduction of the swapper contract is to showcase the functioning of leverage on Morpho Blue (using callbacks)
 without highlighting any known DEX.
 
-Therefore, SwapMock must be replaced (by the swap of your choice) in your implementation. The functions
+Therefore, swapper must be replaced (by the swap of your choice) in your implementation. The functions
 `swapCollatToLoan` and `swapLoanToCollat` must as well be adapted to match the ones of the chosen swap contract.
     
 One should be aware that has to be taken into account on potential swap:
     1. slippage
     2. fees
 
-add a definition of what snippets are
+TODOS: add a definition of what snippets are useful for
     */
 
 contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallback, IMorphoLiquidateCallback {
@@ -39,11 +39,11 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
     using SafeTransferLib for ERC20;
 
     IMorpho public immutable morpho;
-    ISwap public swapMock;
+    ISwap public immutable swapper;
 
-    constructor(address morphoAddress, address swapAddress) {
-        morpho = IMorpho(morphoAddress);
-        swapMock = ISwap(swapAddress);
+    constructor(IMorpho _morpho, ISwap _swapper) {
+        morpho = _morpho;
+        swapper = _swapper;
     }
 
     modifier onlyMorpho() {
@@ -66,19 +66,19 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
             abi.decode(data, (uint256, MarketParams, address));
         (uint256 amountBis,) = morpho.borrow(marketParams, toBorrow, 0, user, address(this));
 
-        ERC20(marketParams.loanToken).approve(address(swapMock), amount);
+        ERC20(marketParams.loanToken).approve(address(swapper), amount);
 
         // Logic to Implement. Following example is a swap, could be a 'unwrap + stake + wrap staked' for
         // wETH(wstETH) Market
         // _approveMaxTo(marketParams.);
-        swapMock.swapLoanToCollat(amountBis);
+        swapper.swapLoanToCollat(amountBis);
     }
 
     function onMorphoLiquidate(uint256 repaidAssets, bytes calldata data) external onlyMorpho {
         (uint256 toSwap, MarketParams memory marketParams) = abi.decode(data, (uint256, MarketParams));
-        uint256 returnedAmount = swapMock.swapCollatToLoan(toSwap);
+        uint256 returnedAmount = swapper.swapCollatToLoan(toSwap);
         require(returnedAmount > repaidAssets); // Add logic for gas cost threshold for instance
-        ERC20(marketParams.loanToken).approve(address(swapMock), returnedAmount);
+        ERC20(marketParams.loanToken).approve(address(swapper), returnedAmount);
     }
 
     function onMorphoRepay(uint256 amount, bytes calldata data) external onlyMorpho {
@@ -87,8 +87,8 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
 
         morpho.withdrawCollateral(marketParams, toWithdraw, user, address(this));
 
-        ERC20(marketParams.collateralToken).approve(address(swapMock), amount);
-        swapMock.swapCollatToLoan(amount);
+        ERC20(marketParams.collateralToken).approve(address(swapper), amount);
+        swapper.swapCollatToLoan(amount);
     }
 
     function leverageMe(uint256 leverageFactor, uint256 initAmountCollateral, MarketParams calldata marketParams)
