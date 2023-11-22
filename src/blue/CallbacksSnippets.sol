@@ -32,7 +32,6 @@ TODOS: add a definition of what snippets are useful for
     */
 
 contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallback, IMorphoLiquidateCallback {
-    using MathLib for uint256;
     using MorphoLib for IMorpho;
     using MarketParamsLib for MarketParams;
     using SafeTransferLib for ERC20;
@@ -147,7 +146,7 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
 
     function _approveMaxTo(address asset, address spender) internal {
         if (ERC20(asset).allowance(address(this), spender) == 0) {
-            ERC20(asset).approve(spender, type(uint256).max);
+            ERC20(asset).safeApprove(spender, type(uint256).max);
         }
     }
 }
