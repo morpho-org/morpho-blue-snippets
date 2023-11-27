@@ -127,7 +127,4 @@ contract MetamorphoSnippets {
         uint256 maxToRedeem = vault.maxRedeem(address(this));
         redeemed = vault.redeem(maxToRedeem, receiver, onBehalf);
     }
-
-    // // TODO:
-    // // Reallocation example
 }
