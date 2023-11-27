@@ -3,8 +3,7 @@ pragma solidity ^0.8.0;
 
 import {MetamorphoSnippets} from "@snippets/metamorpho/MetamorphoSnippets.sol";
 import "@metamorpho-test/helpers/IntegrationTest.sol";
-import "@morpho-blue/libraries/SharesMathLib.sol";
-import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
+
 import {SafeCast} from "@openzeppelin/utils/math/SafeCast.sol";
 
 contract TestIntegrationSnippets is IntegrationTest {
@@ -15,11 +14,11 @@ contract TestIntegrationSnippets is IntegrationTest {
     using MathLib for uint256;
     using Math for uint256;
     using MarketParamsLib for MarketParams;
-    using SharesMathLib for uint256;
 
     function setUp() public virtual override {
         super.setUp();
         snippets = new MetamorphoSnippets(address(vault), address(morpho));
+
         _setCap(allMarkets[0], CAP);
         _sortSupplyQueueIdleLast();
     }

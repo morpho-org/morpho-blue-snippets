@@ -4,11 +4,11 @@ pragma solidity ^0.8.0;
 import {IMetaMorpho} from "@metamorpho/interfaces/IMetaMorpho.sol";
 import {ConstantsLib} from "@metamorpho/libraries/ConstantsLib.sol";
 
-import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
-import {Id, IMorpho, Market, MarketParams} from "@morpho-blue/interfaces/IMorpho.sol";
-import {IrmMock} from "@metamorpho/mocks/IrmMock.sol";
-import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
-import {MathLib, WAD} from "@morpho-blue/libraries/MathLib.sol";
+import {MarketParamsLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MarketParamsLib.sol";
+import {Id, IMorpho, Market, MarketParams} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IMorpho.sol";
+import {IIrm} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IIrm.sol";
+import {MorphoBalancesLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/periphery/MorphoBalancesLib.sol";
+import {MathLib, WAD} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MathLib.sol";
 
 import {Math} from "@openzeppelin/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
@@ -52,7 +52,7 @@ contract MetamorphoSnippets {
         return supplyQueueList;
     }
 
-    // The following function will return the current withdraw queue of the vault
+    // // The following function will return the current withdraw queue of the vault
     function withdrawQueueVault() public view returns (Id[] memory withdrawQueueList) {
         uint256 queueLength = vault.supplyQueueLength();
         withdrawQueueList = new Id[](queueLength);
@@ -75,7 +75,7 @@ contract MetamorphoSnippets {
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
         // Get the borrow rate
-        uint256 borrowRate = IrmMock(marketParams.irm).borrowRateView(marketParams, market);
+        uint256 borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market);
 
         // Get the supply rate
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
@@ -86,17 +86,11 @@ contract MetamorphoSnippets {
     function supplyAPRVault() public view returns (uint256 avgSupplyRate) {
         uint256 ratio;
         uint256 queueLength = vault.withdrawQueueLength();
-
-        // TODO: Verify that the idle liquidity is taken into account
         uint256 totalAmount = totalDepositVault();
 
         for (uint256 i; i < queueLength; ++i) {
             Id idMarket = vault.withdrawQueue(i);
-
-            (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
-                (morpho.idToMarketParams(idMarket));
-
-            MarketParams memory marketParams = MarketParams(loanToken, collateralToken, oracle, irm, lltv);
+            MarketParams memory marketParams = morpho.idToMarketParams(idMarket);
             Market memory market = morpho.market(idMarket);
 
             uint256 currentSupplyAPR = supplyAPRMarket(marketParams, market);
@@ -107,7 +101,7 @@ contract MetamorphoSnippets {
         avgSupplyRate = ratio.wDivUp(totalAmount);
     }
 
-    // --- MANAGING FUNCTIONS ---
+    // // --- MANAGING FUNCTIONS ---
 
     // deposit in the vault a nb of asset
     function depositInVault(uint256 assets, address onBehalf) public returns (uint256 shares) {
@@ -134,6 +128,6 @@ contract MetamorphoSnippets {
         redeemed = vault.redeem(maxToRedeem, receiver, onBehalf);
     }
 
-    // TODO:
-    // Reallocation example
+    // // TODO:
+    // // Reallocation example
 }
