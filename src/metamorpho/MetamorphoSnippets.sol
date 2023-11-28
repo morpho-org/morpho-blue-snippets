@@ -57,9 +57,11 @@ contract MetamorphoSnippets {
     function supplyQueueVault(address vault) public view returns (Id[] memory supplyQueueList) {
         uint256 queueLength = IMetaMorpho(vault).supplyQueueLength();
         supplyQueueList = new Id[](queueLength);
+
         for (uint256 i; i < queueLength; ++i) {
             supplyQueueList[i] = IMetaMorpho(vault).supplyQueue(i);
         }
+
         return supplyQueueList;
     }
 
@@ -68,9 +70,11 @@ contract MetamorphoSnippets {
     function withdrawQueueVault(address vault) public view returns (Id[] memory withdrawQueueList) {
         uint256 queueLength = IMetaMorpho(vault).supplyQueueLength();
         withdrawQueueList = new Id[](queueLength);
+
         for (uint256 i; i < queueLength; ++i) {
             withdrawQueueList[i] = IMetaMorpho(vault).withdrawQueue(i);
         }
+
         return withdrawQueueList;
     }
 

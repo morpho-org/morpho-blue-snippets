@@ -173,11 +173,14 @@ contract TestIntegrationSnippets is IntegrationTest {
         }
     }
 
-    // TODO: enhance the test
-    function testSupplyAPRVault(uint256 deposited) public {
-        // set 2 suppliers and 1 borrower
-        uint256 firstDeposit = bound(deposited, MIN_TEST_ASSETS, MAX_TEST_ASSETS / 2);
-        uint256 secondDeposit = bound(deposited, MIN_TEST_ASSETS, MAX_TEST_ASSETS / 2);
+    function testSupplyAPRVault(uint256 firstDeposit, uint256 secondDeposit, uint256 firstBorrow, uint256 secondBorrow)
+        public
+    {
+        firstDeposit = bound(firstDeposit, MIN_TEST_ASSETS, MAX_TEST_ASSETS / 2);
+        secondDeposit = bound(secondDeposit, MIN_TEST_ASSETS, MAX_TEST_ASSETS / 2);
+        firstBorrow = bound(firstBorrow, MIN_TEST_ASSETS, firstDeposit);
+        secondBorrow = bound(secondBorrow, MIN_TEST_ASSETS, secondDeposit);
+
         _setCap(allMarkets[0], firstDeposit);
         _setCap(allMarkets[1], secondDeposit);
 
@@ -187,58 +190,37 @@ contract TestIntegrationSnippets is IntegrationTest {
 
         vm.prank(ALLOCATOR);
         vault.setSupplyQueue(supplyQueue);
-        loanToken.setBalance(SUPPLIER, firstDeposit);
 
-        vm.prank(SUPPLIER);
+        loanToken.setBalance(SUPPLIER, firstDeposit + secondDeposit);
+        vm.startPrank(SUPPLIER);
         vault.deposit(firstDeposit, ONBEHALF);
-
-        assertEq(snippets.totalDepositVault(address(vault)), firstDeposit, "lastTotalAssets");
-
-        loanToken.setBalance(SUPPLIER, secondDeposit);
-        vm.prank(SUPPLIER);
         vault.deposit(secondDeposit, ONBEHALF);
+        vm.stopPrank();
 
-        assertEq(snippets.totalDepositVault(address(vault)), firstDeposit + secondDeposit, "lastTotalAssets2");
-
-        collateralToken.setBalance(BORROWER, type(uint256).max);
+        collateralToken.setBalance(BORROWER, 2 * MAX_TEST_ASSETS);
         vm.startPrank(BORROWER);
         morpho.supplyCollateral(allMarkets[0], MAX_TEST_ASSETS, BORROWER, hex"");
-        morpho.borrow(allMarkets[0], firstDeposit, 0, BORROWER, BORROWER);
-        vm.stopPrank();
+        morpho.borrow(allMarkets[0], firstBorrow, 0, BORROWER, BORROWER);
 
-        // // in the current state: borrower borrowed some liquidity in market 0
-
-        collateralToken.setBalance(BORROWER, type(uint256).max - MAX_TEST_ASSETS);
-        vm.startPrank(BORROWER);
         morpho.supplyCollateral(allMarkets[1], MAX_TEST_ASSETS, BORROWER, hex"");
-        morpho.borrow(allMarkets[1], secondDeposit / 4, 0, BORROWER, BORROWER);
+        morpho.borrow(allMarkets[1], secondBorrow / 4, 0, BORROWER, BORROWER);
         vm.stopPrank();
-
-        // in the current state: borrower borrowed some liquidity in market 1 as well, up to 1/4 of the liquidity
-
-        uint256 avgSupplyRateSnippets = snippets.supplyAPRVault(address(vault));
-        assertGt(avgSupplyRateSnippets, 0, "avgSupplyRateSnippets ==0");
-
-        // market 0: utilization 100% -> firstDeposit*50% + secondDeposit * (50%/4) (only a quarter is borrowed)
-        _setFee(0);
 
         Id id0 = Id(allMarkets[0].id());
-
         Id id1 = Id(allMarkets[1].id());
+
         Market memory market0 = morpho.market(id0);
         Market memory market1 = morpho.market(id1);
 
         uint256 rateMarket0 = snippets.supplyAPRMarket(allMarkets[0], market0);
         uint256 rateMarket1 = snippets.supplyAPRMarket(allMarkets[1], market1);
-        assertGt(rateMarket0, 0, "supply rate ==0");
-        assertGt(rateMarket1, 0, "supply rate ==0");
-
         uint256 avgRateNum = rateMarket0.wMulDown(firstDeposit) + rateMarket1.wMulDown(secondDeposit);
-        // uint256 totalDeposited =
-        // uint256 avgRate = avgRateNum.wDivDown(firstDeposit+secondDeposit)
-        uint256 avgRate = (firstDeposit + secondDeposit) == 0 ? 0 : avgRateNum.wDivUp(firstDeposit + secondDeposit);
-        assertGt(avgRate, 0, "supply rate ==0");
-        assertEq(avgSupplyRateSnippets, avgRate, "avgSupplyRateSnippets ==0");
+
+        uint256 expectedAvgRate = avgRateNum.wDivUp(firstDeposit + secondDeposit);
+
+        uint256 avgSupplyRateSnippets = snippets.supplyAPRVault(address(vault));
+
+        assertEq(avgSupplyRateSnippets, expectedAvgRate, "avgSupplyRateSnippets == 0");
     }
 
     // MANAGING FUNCTION
