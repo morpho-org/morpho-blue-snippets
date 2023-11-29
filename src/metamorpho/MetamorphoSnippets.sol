@@ -28,10 +28,9 @@ contract MetaMorphoSnippets {
     // --- VIEW FUNCTIONS ---
 
     /// @notice Returns the total assets deposited into a MetaMorpho `vault`.
-    /// @dev It doesn't take into account the fees accrued since the last update.
     /// @param vault The address of the MetaMorpho vault.
     function totalDepositVault(address vault) public view returns (uint256 totalAssets) {
-        totalAssets = IMetaMorpho(vault).lastTotalAssets();
+        totalAssets = IMetaMorpho(vault).totalAssets();
     }
 
     /// @notice Returns the total assets supplied into a specific morpho blue market by a MetaMorpho `vault`.
@@ -78,18 +77,27 @@ contract MetaMorphoSnippets {
         return withdrawQueueList;
     }
 
-    /// @notice Returns the supply cap of a market on a MetaMorpho `vault`.
+    /// @notice Returns the sum of the supply caps of markets with the same collateral `token` on a MetaMorpho `vault`.
+    /// @dev This is a way to visualize exposure to this token.
     /// @param vault The address of the MetaMorpho vault.
-    /// @param marketParams The morpho blue market.
-    function capMarket(address vault, MarketParams memory marketParams) public view returns (uint192 cap) {
-        Id id = marketParams.id();
-        cap = IMetaMorpho(vault).config(id).cap;
+    /// @param token The collateral token.
+    function totalCapAsset(address vault, address token) public view returns (uint192 totalCap) {
+        uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
+
+        for (uint256 i; i < queueLength; ++i) {
+            Id idMarket = IMetaMorpho(vault).withdrawQueue(i);
+            MarketParams memory marketParams = morpho.idToMarketParams(idMarket);
+
+            if (marketParams.collateralToken == token) {
+                totalCap += IMetaMorpho(vault).config(idMarket).cap;
+            }
+        }
     }
 
-    /// @notice Returns the current APR (Annual Percentage Rate) of a morpho blue market.
+    /// @notice Returns the current APY of a morpho blue market.
     /// @param marketParams The morpho blue market parameters.
     /// @param market The morpho blue market state.
-    function supplyAPRMarket(MarketParams memory marketParams, Market memory market)
+    function supplyAPYMarket(MarketParams memory marketParams, Market memory market)
         public
         view
         returns (uint256 supplyRate)
@@ -102,13 +110,13 @@ contract MetaMorphoSnippets {
         // Get the supply rate
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
+        supplyRate = borrowRate.wTaylorCompounded(1).wMulDown(1 ether - market.fee).wMulDown(utilization);
     }
 
-    /// @notice Returns the current APR (Annual Percentage Rate) of a MetaMorpho vault.
-    /// @dev It is computed as the sum of all APR of enabled markets weighted by the supply on these markets.
+    /// @notice Returns the current APY of a MetaMorpho vault.
+    /// @dev It is computed as the sum of all APY of enabled markets weighted by the supply on these markets.
     /// @param vault The address of the MetaMorpho vault.
-    function supplyAPRVault(address vault) public view returns (uint256 avgSupplyRate) {
+    function supplyAPYVault(address vault) public view returns (uint256 avgSupplyRate) {
         uint256 ratio;
         uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
 
@@ -120,7 +128,7 @@ contract MetaMorphoSnippets {
             MarketParams memory marketParams = morpho.idToMarketParams(idMarket);
             Market memory market = morpho.market(idMarket);
 
-            uint256 currentSupplyAPR = supplyAPRMarket(marketParams, market);
+            uint256 currentSupplyAPR = supplyAPYMarket(marketParams, market);
             uint256 vaultAsset = vaultAssetsInMarket(vault, marketParams);
             ratio += currentSupplyAPR.wMulDown(vaultAsset);
         }
@@ -145,6 +153,7 @@ contract MetaMorphoSnippets {
 
     /// @notice Withdraws `assets` from the `vault` on behalf of the sender, and sends them to `receiver`.
     /// @dev Sender must approve the snippets contract to manage his tokens before the call.
+    /// @dev To withdraw all, it is recommended to use the redeem function.
     /// @param vault The address of the MetaMorpho vault.
     /// @param assets the amount to withdraw.
     /// @param receiver The address that will receive the withdrawn assets.
@@ -152,14 +161,6 @@ contract MetaMorphoSnippets {
         public
         returns (uint256 redeemed)
     {
-        redeemed = IMetaMorpho(vault).withdraw(assets, receiver, msg.sender);
-    }
-
-    /// @notice Withdraws the whole sender's position from the `vault`, and sends the withdrawn amount to `receiver`.
-    /// @param vault The address of the MetaMorpho vault.
-    /// @param receiver The address that will receive the withdrawn assets.
-    function withdrawFromVaultAll(address vault, address receiver) public returns (uint256 redeemed) {
-        uint256 assets = IMetaMorpho(vault).maxWithdraw(msg.sender);
         redeemed = IMetaMorpho(vault).withdraw(assets, receiver, msg.sender);
     }
 
