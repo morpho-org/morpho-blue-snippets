@@ -13,13 +13,13 @@ import {MathLib, WAD} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/M
 import {Math} from "@openzeppelin/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
 
-contract MetamorphoSnippets {
-    IMorpho public immutable morpho;
-
+contract MetaMorphoSnippets {
     using MathLib for uint256;
     using Math for uint256;
     using MarketParamsLib for MarketParams;
     using MorphoBalancesLib for IMorpho;
+
+    IMorpho public immutable morpho;
 
     constructor(address morphoAddress) {
         morpho = IMorpho(morphoAddress);
@@ -27,33 +27,33 @@ contract MetamorphoSnippets {
 
     // --- VIEW FUNCTIONS ---
 
-    /// @notice Returns the total assets deposited into a metamorpho `vault`.
-    /// @dev it doesn't take into account the fees accrued since the last update.
-    /// @param vault The address of the metamorpho vault.
+    /// @notice Returns the total assets deposited into a MetaMorpho `vault`.
+    /// @dev It doesn't take into account the fees accrued since the last update.
+    /// @param vault The address of the MetaMorpho vault.
     function totalDepositVault(address vault) public view returns (uint256 totalAssets) {
         totalAssets = IMetaMorpho(vault).lastTotalAssets();
     }
 
-    /// @notice Returns the total assets supplied into a specific morpho blue market by a metamorpho `vault`.
-    /// @param vault The address of the metamorpho vault.
+    /// @notice Returns the total assets supplied into a specific morpho blue market by a MetaMorpho `vault`.
+    /// @param vault The address of the MetaMorpho vault.
     /// @param marketParams The morpho blue market.
     function vaultAssetsInMarket(address vault, MarketParams memory marketParams)
         public
         view
-        returns (uint256 vaultAmount)
+        returns (uint256 assets)
     {
-        vaultAmount = morpho.expectedSupplyAssets(marketParams, vault);
+        assets = morpho.expectedSupplyAssets(marketParams, vault);
     }
 
-    /// @notice Returns the total shares balance of a `user` on a metamorpho `vault`.
-    /// @param vault The address of the metamorpho vault.
+    /// @notice Returns the total shares balance of a `user` on a MetaMorpho `vault`.
+    /// @param vault The address of the MetaMorpho vault.
     /// @param user The address of the user.
     function totalSharesUserVault(address vault, address user) public view returns (uint256 totalSharesUser) {
         totalSharesUser = IMetaMorpho(vault).balanceOf(user);
     }
 
-    /// @notice Returns the supply queue a metamorpho `vault`.
-    /// @param vault The address of the metamorpho vault.
+    /// @notice Returns the supply queue a MetaMorpho `vault`.
+    /// @param vault The address of the MetaMorpho vault.
     function supplyQueueVault(address vault) public view returns (Id[] memory supplyQueueList) {
         uint256 queueLength = IMetaMorpho(vault).supplyQueueLength();
         supplyQueueList = new Id[](queueLength);
@@ -65,8 +65,8 @@ contract MetamorphoSnippets {
         return supplyQueueList;
     }
 
-    /// @notice Returns the withdraw queue a metamorpho `vault`.
-    /// @param vault The address of the metamorpho vault.
+    /// @notice Returns the withdraw queue a MetaMorpho `vault`.
+    /// @param vault The address of the MetaMorpho vault.
     function withdrawQueueVault(address vault) public view returns (Id[] memory withdrawQueueList) {
         uint256 queueLength = IMetaMorpho(vault).supplyQueueLength();
         withdrawQueueList = new Id[](queueLength);
@@ -78,8 +78,8 @@ contract MetamorphoSnippets {
         return withdrawQueueList;
     }
 
-    /// @notice Returns the supply cap of a market on a metamorpho `vault`.
-    /// @param vault The address of the metamorpho vault.
+    /// @notice Returns the supply cap of a market on a MetaMorpho `vault`.
+    /// @param vault The address of the MetaMorpho vault.
     /// @param marketParams The morpho blue market.
     function capMarket(address vault, MarketParams memory marketParams) public view returns (uint192 cap) {
         Id id = marketParams.id();
@@ -105,9 +105,9 @@ contract MetamorphoSnippets {
         supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
     }
 
-    /// @notice Returns the current APR (Annual Percentage Rate) of a metamorpho vault.
+    /// @notice Returns the current APR (Annual Percentage Rate) of a MetaMorpho vault.
     /// @dev It is computed as the sum of all APR of enabled markets weighted by the supply on these markets.
-    /// @param vault The address of the metamorpho vault.
+    /// @param vault The address of the MetaMorpho vault.
     function supplyAPRVault(address vault) public view returns (uint256 avgSupplyRate) {
         uint256 ratio;
         uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
@@ -132,7 +132,7 @@ contract MetamorphoSnippets {
 
     /// @notice Deposit `assets` into the `vault` on behalf of `onBehalf`.
     /// @dev Sender must approve the snippets contract to manage his tokens before the call.
-    /// @param vault The address of the metamorpho vault.
+    /// @param vault The address of the MetaMorpho vault.
     /// @param assets the amount to deposit.
     /// @param onBehalf The address that will own the increased deposit position.
     function depositInVault(address vault, uint256 assets, address onBehalf) public returns (uint256 shares) {
@@ -145,7 +145,7 @@ contract MetamorphoSnippets {
 
     /// @notice Withdraws `assets` from the `vault` on behalf of the sender, and sends them to `receiver`.
     /// @dev Sender must approve the snippets contract to manage his tokens before the call.
-    /// @param vault The address of the metamorpho vault.
+    /// @param vault The address of the MetaMorpho vault.
     /// @param assets the amount to withdraw.
     /// @param receiver The address that will receive the withdrawn assets.
     function withdrawFromVaultAmount(address vault, uint256 assets, address receiver)
@@ -156,7 +156,7 @@ contract MetamorphoSnippets {
     }
 
     /// @notice Withdraws the whole sender's position from the `vault`, and sends the withdrawn amount to `receiver`.
-    /// @param vault The address of the metamorpho vault.
+    /// @param vault The address of the MetaMorpho vault.
     /// @param receiver The address that will receive the withdrawn assets.
     function withdrawFromVaultAll(address vault, address receiver) public returns (uint256 redeemed) {
         uint256 assets = IMetaMorpho(vault).maxWithdraw(msg.sender);
@@ -164,7 +164,7 @@ contract MetamorphoSnippets {
     }
 
     /// @notice Redeems the whole sender's position from the `vault`, and sends the withdrawn amount to `receiver`.
-    /// @param vault The address of the metamorpho vault.
+    /// @param vault The address of the MetaMorpho vault.
     /// @param receiver The address that will receive the withdrawn assets.
     function redeemAllFromVault(address vault, address receiver) public returns (uint256 redeemed) {
         uint256 maxToRedeem = IMetaMorpho(vault).maxRedeem(msg.sender);
