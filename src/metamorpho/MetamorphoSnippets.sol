@@ -80,15 +80,15 @@ contract MetaMorphoSnippets {
     /// @notice Returns the sum of the supply caps of markets with the same collateral `token` on a MetaMorpho `vault`.
     /// @dev This is a way to visualize exposure to this token.
     /// @param vault The address of the MetaMorpho vault.
-    /// @param token The collateral token.
-    function totalCapAsset(address vault, address token) public view returns (uint192 totalCap) {
+    /// @param asset The collateral asset.
+    function totalCapCollateral(address vault, address asset) public view returns (uint192 totalCap) {
         uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
 
         for (uint256 i; i < queueLength; ++i) {
             Id idMarket = IMetaMorpho(vault).withdrawQueue(i);
             MarketParams memory marketParams = morpho.idToMarketParams(idMarket);
 
-            if (marketParams.collateralToken == token) {
+            if (marketParams.collateralToken == asset) {
                 totalCap += IMetaMorpho(vault).config(idMarket).cap;
             }
         }

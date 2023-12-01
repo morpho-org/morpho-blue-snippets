@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.0;
 
-import {MetaMorphoSnippets} from "@snippets/metamorpho/MetamorphoSnippets.sol";
+import {MetaMorphoSnippets} from "@snippets/metamorpho/MetaMorphoSnippets.sol";
 import "@metamorpho-test/helpers/IntegrationTest.sol";
 
 import {SafeCast} from "@openzeppelin/utils/math/SafeCast.sol";
@@ -130,8 +130,8 @@ contract TestIntegrationSnippets is IntegrationTest {
 
         assertEq(
             capMarket1 + capMarket2 + capMarket3,
-            snippets.totalCapAsset(address(vault), address(collateralToken)),
-            "cap per market"
+            snippets.totalCapCollateral(address(vault), address(collateralToken)),
+            "total collateral cap"
         );
     }
 
