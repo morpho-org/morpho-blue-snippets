@@ -94,7 +94,7 @@ contract MetaMorphoSnippets {
         }
     }
 
-    /// @notice Returns the current APY of a morpho blue market.
+    /// @notice Returns the current APY of the vault on a Morpho Blue market.
     /// @param marketParams The morpho blue market parameters.
     /// @param market The morpho blue market state.
     function supplyAPYMarket(MarketParams memory marketParams, Market memory market)
@@ -128,9 +128,9 @@ contract MetaMorphoSnippets {
             MarketParams memory marketParams = morpho.idToMarketParams(idMarket);
             Market memory market = morpho.market(idMarket);
 
-            uint256 currentSupplyAPR = supplyAPYMarket(marketParams, market);
+            uint256 currentSupplyAPY = supplyAPYMarket(marketParams, market);
             uint256 vaultAsset = vaultAssetsInMarket(vault, marketParams);
-            ratio += currentSupplyAPR.wMulDown(vaultAsset);
+            ratio += currentSupplyAPY.wMulDown(vaultAsset);
         }
 
         avgSupplyRate = ratio.wDivUp(totalAmount);
