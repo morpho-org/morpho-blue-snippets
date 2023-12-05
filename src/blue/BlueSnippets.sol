@@ -48,12 +48,12 @@ contract BlueSnippets {
     // weird oracles / markets created
 
     /**
-     * @notice Calculates the supply APR (Annual Percentage Rate) for a given market.
+     * @notice Calculates the supply APY (Annual Percentage Yield) for a given market.
      * @param marketParams The parameters of the market.
-     * @param market The market for which the supply APR is being calculated.
-     * @return supplyRate The calculated supply APR.
+     * @param market The market for which the supply APY is being calculated.
+     * @return supplyRate The calculated supply APY.
      */
-    function supplyAPR(MarketParams memory marketParams, Market memory market)
+    function supplyAPY(MarketParams memory marketParams, Market memory market)
         public
         view
         returns (uint256 supplyRate)
@@ -61,7 +61,7 @@ contract BlueSnippets {
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
         // Get the borrow rate
-        uint256 borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market);
+        uint256 borrowRate = borrowAPY(marketParams, market);
 
         // Get the supply rate
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
@@ -70,17 +70,17 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Calculates the borrow APR (Annual Percentage Rate) for a given market.
+     * @notice Calculates the borrow APY (Annual Percentage Yield) for a given market.
      * @param marketParams The parameters of the market.
-     * @param market The market for which the borrow APR is being calculated.
-     * @return borrowRate The calculated borrow APR.
+     * @param market The market for which the borrow APY is being calculated.
+     * @return borrowRate The calculated borrow APY.
      */
-    function borrowAPR(MarketParams memory marketParams, Market memory market)
+    function borrowAPY(MarketParams memory marketParams, Market memory market)
         public
         view
         returns (uint256 borrowRate)
     {
-        borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market);
+        borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(1);
     }
 
     /**
