@@ -5,6 +5,7 @@ import "@morpho-blue-test/BaseTest.sol";
 import {ISwap} from "@snippets/blue/interfaces/ISwap.sol";
 import {SwapMock} from "@snippets/blue/mocks/SwapMock.sol";
 import {CallbacksSnippets} from "@snippets/blue/CallbacksSnippets.sol";
+import {ERC20} from "@solmate/utils/SafeTransferLib.sol";
 
 contract CallbacksIntegrationTest is BaseTest {
     using MathLib for uint256;
@@ -33,23 +34,20 @@ contract CallbacksIntegrationTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testLeverageMe(uint256 initAmountCollateral) public {
-        // INITIALISATION
+    function testLeverageMe(uint256 initAmountCollateral, uint256 leverageFactor) public {
+        uint256 maxLeverageFactor = WAD / (WAD - marketParams.lltv);
 
-        uint256 leverageFactor = 4; // nb to set
-
+        leverageFactor = bound(leverageFactor, 2, maxLeverageFactor);
         initAmountCollateral = bound(initAmountCollateral, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT / leverageFactor);
         uint256 finalAmountCollateral = initAmountCollateral * leverageFactor;
 
         oracle.setPrice(ORACLE_PRICE_SCALE);
-
-        // supplying enough liquidity in the market
-        vm.startPrank(SUPPLIER);
-        loanToken.setBalance(address(SUPPLIER), finalAmountCollateral);
-        morpho.supply(marketParams, finalAmountCollateral, 0, address(SUPPLIER), hex"");
-        vm.stopPrank();
-
+        loanToken.setBalance(SUPPLIER, finalAmountCollateral);
         collateralToken.setBalance(USER, initAmountCollateral);
+
+        vm.prank(SUPPLIER);
+        morpho.supply(marketParams, finalAmountCollateral, 0, SUPPLIER, hex"");
+
         vm.prank(USER);
         snippets.leverageMe(leverageFactor, initAmountCollateral, marketParams);
 
@@ -60,24 +58,22 @@ contract CallbacksIntegrationTest is BaseTest {
         assertEq(morpho.expectedBorrowAssets(marketParams, USER), loanAmount, "no collateral");
     }
 
-    function testDeLeverageMe(uint256 initAmountCollateral) public {
-        /// same as testLeverageMe
+    function testDeLeverageMe(uint256 initAmountCollateral, uint256 leverageFactor) public {
+        uint256 maxLeverageFactor = WAD / (WAD - marketParams.lltv);
 
-        uint256 leverageFactor = 4; // nb to set
-
+        leverageFactor = bound(leverageFactor, 2, maxLeverageFactor);
         initAmountCollateral = bound(initAmountCollateral, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT / leverageFactor);
         uint256 finalAmountCollateral = initAmountCollateral * leverageFactor;
 
         oracle.setPrice(ORACLE_PRICE_SCALE);
+        loanToken.setBalance(SUPPLIER, finalAmountCollateral);
+        collateralToken.setBalance(USER, initAmountCollateral);
 
-        vm.startPrank(SUPPLIER);
-        loanToken.setBalance(address(SUPPLIER), finalAmountCollateral);
-        morpho.supply(marketParams, finalAmountCollateral, 0, address(SUPPLIER), hex"");
-        vm.stopPrank();
+        vm.prank(SUPPLIER);
+        morpho.supply(marketParams, finalAmountCollateral, 0, SUPPLIER, hex"");
 
         uint256 loanAmount = initAmountCollateral * (leverageFactor - 1);
 
-        collateralToken.setBalance(USER, initAmountCollateral);
         vm.prank(USER);
         snippets.leverageMe(leverageFactor, initAmountCollateral, marketParams);
 
@@ -91,6 +87,9 @@ contract CallbacksIntegrationTest is BaseTest {
 
         assertEq(morpho.borrowShares(marketParams.id(), USER), 0, "no borrow");
         assertEq(amountRepayed, loanAmount, "no repaid");
+        assertEq(
+            ERC20(marketParams.collateralToken).balanceOf(USER), initAmountCollateral, "user didn't get back his assets"
+        );
     }
 
     struct LiquidateTestParams {
@@ -101,72 +100,55 @@ contract CallbacksIntegrationTest is BaseTest {
         uint256 lltv;
     }
 
-    // TODOS: implement the following function
-    // function testLiquidateWithoutCollateral(LiquidateTestParams memory params, uint256 amountSeized) public {
-    //     _setLltv(_boundTestLltv(params.lltv));
-    //     (params.amountCollateral, params.amountBorrowed, params.priceCollateral) =
-    //         _boundUnhealthyPosition(params.amountCollateral, params.amountBorrowed, params.priceCollateral);
+    function testLiquidateSeizeAllCollateral(uint256 borrowAmount) public {
+        borrowAmount = bound(borrowAmount, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
 
-    //     vm.assume(params.amountCollateral > 1);
+        uint256 collateralAmount = borrowAmount.wDivUp(marketParams.lltv);
 
-    //     params.amountSupplied =
-    //         bound(params.amountSupplied, params.amountBorrowed, params.amountBorrowed + MAX_TEST_AMOUNT);
-    //     _supply(params.amountSupplied);
+        oracle.setPrice(ORACLE_PRICE_SCALE);
+        loanToken.setBalance(SUPPLIER, borrowAmount);
+        collateralToken.setBalance(BORROWER, collateralAmount);
 
-    //     collateralToken.setBalance(BORROWER, params.amountCollateral);
+        vm.prank(SUPPLIER);
+        morpho.supply(marketParams, borrowAmount, 0, SUPPLIER, hex"");
 
-    //     oracle.setPrice(type(uint256).max / params.amountCollateral);
+        vm.startPrank(BORROWER);
+        morpho.supplyCollateral(marketParams, collateralAmount, BORROWER, hex"");
+        morpho.borrow(marketParams, borrowAmount, 0, BORROWER, BORROWER);
+        vm.stopPrank();
 
-    //     vm.startPrank(BORROWER);
-    //     morpho.supplyCollateral(marketParams, params.amountCollateral, BORROWER, hex"");
-    //     morpho.borrow(marketParams, params.amountBorrowed, 0, BORROWER, BORROWER);
-    //     vm.stopPrank();
+        oracle.setPrice(ORACLE_PRICE_SCALE / 2);
 
-    //     oracle.setPrice(params.priceCollateral);
+        vm.prank(LIQUIDATOR);
+        snippets.fullLiquidationWithoutCollat(marketParams, BORROWER, true);
 
-    //     // uint256 borrowShares = morpho.borrowShares(id, BORROWER);
-    //     uint256 liquidationIncentiveFactor = _liquidationIncentiveFactor(marketParams.lltv);
-    //     uint256 maxSeized = params.amountBorrowed.wMulDown(liquidationIncentiveFactor).mulDivDown(
-    //         ORACLE_PRICE_SCALE, params.priceCollateral
-    //     );
-    //     vm.assume(maxSeized != 0);
+        assertEq(morpho.collateral(marketParams.id(), BORROWER), 0, "not fully liquididated");
+        assertGt(ERC20(marketParams.loanToken).balanceOf(LIQUIDATOR), 0, "Liquidator didn't receive profit");
+    }
 
-    //     amountSeized = bound(amountSeized, 1, Math.min(maxSeized, params.amountCollateral - 1));
+    function testLiquidateRepayAllShares(uint256 borrowAmount) public {
+        borrowAmount = bound(borrowAmount, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
 
-    //     uint256 expectedRepaid =
-    //         amountSeized.mulDivUp(params.priceCollateral, ORACLE_PRICE_SCALE).wDivUp(liquidationIncentiveFactor);
-    //     // uint256 expectedRepaidShares =
-    //     // expectedRepaid.toSharesDown(morpho.totalBorrowAssets(id), morpho.totalBorrowShares(id));
+        uint256 collateralAmount = borrowAmount.wDivUp(marketParams.lltv);
 
-    //     vm.startPrank(address(snippets));
-    //     loanToken.approve(address(morpho), type(uint256).max);
-    //     loanToken.approve(address(swapMock), type(uint256).max);
-    //     collateralToken.approve(address(morpho), type(uint256).max);
-    //     collateralToken.approve(address(swapMock), type(uint256).max);
-    //     loanToken.approve(address(snippets), type(uint256).max);
-    //     collateralToken.approve(address(snippets), type(uint256).max);
-    //     loanToken.setBalance(address(snippets), params.amountBorrowed);
+        oracle.setPrice(ORACLE_PRICE_SCALE);
+        loanToken.setBalance(SUPPLIER, borrowAmount);
+        collateralToken.setBalance(BORROWER, collateralAmount);
 
-    //     // vm.prank(LIQUIDATOR);
+        vm.prank(SUPPLIER);
+        morpho.supply(marketParams, borrowAmount, 0, SUPPLIER, hex"");
 
-    //     (uint256 returnSeized, uint256 returnRepaid) =
-    //         snippets.liquidateWithoutCollat(BORROWER, params.amountBorrowed, amountSeized, swapMock, marketParams);
-    //     // morpho.liquidate(marketParams, BORROWER, amountSeized, 0, hex"");
-    //     // uint256 expectedCollateral = params.amountCollateral - amountSeized;
-    //     // uint256 expectedBorrowed = params.amountBorrowed - expectedRepaid;
-    //     // uint256 expectedBorrowShares = borrowShares - expectedRepaidShares;
+        vm.startPrank(BORROWER);
+        morpho.supplyCollateral(marketParams, collateralAmount, BORROWER, hex"");
+        morpho.borrow(marketParams, borrowAmount, 0, BORROWER, BORROWER);
+        vm.stopPrank();
 
-    //     assertEq(returnSeized, amountSeized, "returned seized amount");
-    //     assertEq(returnRepaid, expectedRepaid, "returned asset amount");
-    //     // assertEq(morpho.borrowShares(id, BORROWER), expectedBorrowShares, "borrow shares");
-    //     // assertEq(morpho.totalBorrowAssets(id), expectedBorrowed, "total borrow");
-    //     // assertEq(morpho.totalBorrowShares(id), expectedBorrowShares, "total borrow shares");
-    //     // assertEq(morpho.collateral(id, BORROWER), expectedCollateral, "collateral");
-    //     // assertEq(loanToken.balanceOf(BORROWER), params.amountBorrowed, "borrower balance");
-    //     // assertEq(loanToken.balanceOf(LIQUIDATOR), expectedBorrowed, "liquidator balance");
-    //     // assertEq(loanToken.balanceOf(address(morpho)), params.amountSupplied - expectedBorrowed, "morpho
-    // balance");
-    //     // assertEq(collateralToken.balanceOf(address(morpho)), expectedCollateral, "morpho collateral balance");
-    //     // assertEq(collateralToken.balanceOf(LIQUIDATOR), amountSeized, "liquidator collateral balance");
-    // }
+        oracle.setPrice(ORACLE_PRICE_SCALE.wMulDown(0.95e18));
+
+        vm.prank(LIQUIDATOR);
+        snippets.fullLiquidationWithoutCollat(marketParams, BORROWER, false);
+
+        assertEq(morpho.borrowShares(marketParams.id(), BORROWER), 0, "not fully liquididated");
+        assertGt(ERC20(marketParams.loanToken).balanceOf(LIQUIDATOR), 0, "Liquidator didn't receive profit");
+    }
 }

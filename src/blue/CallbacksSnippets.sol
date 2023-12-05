@@ -13,7 +13,9 @@ import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 
 import {ISwap} from "@snippets/blue/interfaces/ISwap.sol";
+
 /*
+
 The following swapper contract only has educational purpose. It simulates a contract allowing to swap a token against
 another, with the exact price returned by an arbitrary oracle.
 
@@ -27,8 +29,7 @@ One should be aware that has to be taken into account on potential swap:
     1. slippage
     2. fees
 
-TODOS: add a definition of what snippets are useful for
-    */
+*/
 
 contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallback, IMorphoLiquidateCallback {
     using MorphoLib for IMorpho;
@@ -52,9 +53,12 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
     
     Callbacks
 
-    Reminder: for a given market, one can leverage his position up to a leverageFactor = 1/1-LLTV,
+    Reminder: for a given market, one can leverage his position up to a maxLeverageFactor = 1/1-LLTV,
     
     Example : with a LLTV of 80% -> 5 is the max leverage factor
+    
+    Warning : it is strongly recommended to not use the the max leverage factor, as the position could get liquidated
+    at next block because of interets.  
     
     */
 
@@ -72,10 +76,11 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
     }
 
     function onMorphoLiquidate(uint256 repaidAssets, bytes calldata data) external onlyMorpho {
-        (uint256 toSwap, MarketParams memory marketParams) = abi.decode(data, (uint256, MarketParams));
-        uint256 returnedAmount = swapper.swapCollatToLoan(toSwap);
-        require(returnedAmount > repaidAssets); // Add logic for gas cost threshold for instance
-        ERC20(marketParams.loanToken).approve(address(swapper), returnedAmount);
+        (address collateralToken) = abi.decode(data, (address));
+
+        ERC20(collateralToken).approve(address(swapper), type(uint256).max);
+
+        swapper.swapCollatToLoan(ERC20(collateralToken).balanceOf(address(this)));
     }
 
     function onMorphoRepay(uint256 amount, bytes calldata data) external onlyMorpho {
@@ -88,6 +93,13 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         swapper.swapCollatToLoan(amount);
     }
 
+    /// @notice Create a leveraged position with a given `leverageFactor` on the `marketParams` market of Morpho Blue
+    /// for the sendder.
+    /// @dev The sender needs to hold `initAmountCollateral`, and to approve this contract to manage his positions on
+    /// Morpho Blue.
+    /// @param leverageFactor The factor of leverage wanted. can't be higher than 1/1-LLTV.
+    /// @param initAmountCollateral The initial amount of collateral owned by the sender.
+    /// @param marketParams The market to perform the leverage on.
     function leverageMe(uint256 leverageFactor, uint256 initAmountCollateral, MarketParams calldata marketParams)
         public
     {
@@ -100,10 +112,10 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
 
         // (leverageFactor - 1) * InitAmountCollateral.mulDivDown.(ORACLE_PRICE_SCALE, IOracle(oracle).price())
 
-        // However here we have price = `ORACLE_PRICE_SCALE`, so loanAmount = (leverageFactor - 1) *
+        // However in this simple example we have price = `ORACLE_PRICE_SCALE`, so loanAmount = (leverageFactor - 1) *
         // InitAmountCollateral
 
-        // Warning : When using real swaps, price doesn't equal `ORACLE_PRICE_SCALE` anymore, so
+        // Warning : When using real swaps, price doesn't necessarily equal `ORACLE_PRICE_SCALE` anymore, so
         // mulDivDown.(ORACLE_PRICE_SCALE, IOracle(oracle).price()) can't be removed from the calculus, and therefore an
         // oracle should be used to compute the correct amount.
         // Warning : When using real swaps, fees and slippage should also be taken into account to compute `loanAmount`.
@@ -117,20 +129,11 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         );
     }
 
-    function liquidateWithoutCollat(
-        address borrower,
-        uint256 loanAmountToRepay,
-        uint256 assetsToSeize,
-        MarketParams calldata marketParams
-    ) public returns (uint256 seizedAssets, uint256 repaidAssets) {
-        _approveMaxTo(address(marketParams.collateralToken), address(this));
-
-        uint256 repaidShares;
-
-        (seizedAssets, repaidAssets) =
-            morpho.liquidate(marketParams, borrower, assetsToSeize, repaidShares, abi.encode(loanAmountToRepay));
-    }
-
+    /// @notice Create a deleverages the sender on the given `marketParams` market of Morpho Blue by repaying his debt
+    /// and withdrawing his collateral. The withdrawn assets are sent to the sender.
+    /// @dev If the sender has a leveraged position on `marketParams`, he doesn't need any tokens to perform this
+    /// operation.
+    /// @param marketParams The market to perform the leverage on.
     function deLeverageMe(MarketParams calldata marketParams) public returns (uint256 amountRepayed) {
         uint256 totalShares = morpho.borrowShares(marketParams.id(), msg.sender);
 
@@ -139,8 +142,36 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         (amountRepayed,) = morpho.repay(marketParams, 0, totalShares, msg.sender, abi.encode(marketParams, msg.sender));
 
         ERC20(marketParams.collateralToken).safeTransfer(
-            msg.sender, ERC20(marketParams.collateralToken).balanceOf(msg.sender)
+            msg.sender, ERC20(marketParams.collateralToken).balanceOf(address(this))
         );
+    }
+
+    /// @notice Fully liquidates the borrow position of `borrower` on the given `marketParams` market of Morpho Blue and
+    /// sends the profit of the liquidation to the sender.
+    /// @dev Thanks to callbacks, the sender doesn't need to hold any tokens to perform this operation.
+    /// @param marketParams The market to perform the liquidation on.
+    /// @param borrower The owner of the liquidable borrow position.
+    /// @param seizeFullCollat Pass `True` to seize all the collateral of `borrower`. Pass `False` to repay all of the
+    /// `borrower`'s debt.
+    function fullLiquidationWithoutCollat(MarketParams calldata marketParams, address borrower, bool seizeFullCollat)
+        public
+        returns (uint256 seizedAssets, uint256 repaidAssets)
+    {
+        Id id = marketParams.id();
+
+        uint256 seizedCollateral;
+        uint256 repaidShares;
+
+        if (seizeFullCollat) seizedCollateral = morpho.collateral(id, borrower);
+        else repaidShares = morpho.borrowShares(id, borrower);
+
+        _approveMaxTo(marketParams.loanToken, address(morpho));
+
+        (seizedAssets, repaidAssets) = morpho.liquidate(
+            marketParams, borrower, seizedCollateral, repaidShares, abi.encode(marketParams.collateralToken)
+        );
+
+        ERC20(marketParams.loanToken).safeTransfer(msg.sender, ERC20(marketParams.loanToken).balanceOf(address(this)));
     }
 
     function _approveMaxTo(address asset, address spender) internal {
