@@ -6,17 +6,18 @@ import "@metamorpho-test/helpers/IntegrationTest.sol";
 
 import {SafeCast} from "@openzeppelin/utils/math/SafeCast.sol";
 
-contract TestIntegrationSnippets is IntegrationTest {
-    MetaMorphoSnippets internal snippets;
-
+contract TestMetaMorphoSnippets is IntegrationTest {
     using MorphoBalancesLib for IMorpho;
     using MorphoLib for IMorpho;
     using MathLib for uint256;
     using Math for uint256;
     using MarketParamsLib for MarketParams;
 
+    MetaMorphoSnippets internal snippets;
+
     function setUp() public virtual override {
         super.setUp();
+
         snippets = new MetaMorphoSnippets(address(morpho));
 
         _setCap(allMarkets[0], CAP);
@@ -147,13 +148,13 @@ contract TestIntegrationSnippets is IntegrationTest {
         uint256 borrowTrue = irm.borrowRateView(marketParams, market);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        assertEq(utilization, 0, "Diff in snippets vs integration supplyAPR test");
+        assertEq(utilization, 0, "Diff in snippets vs integration supplyAPY test");
         assertEq(
             borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization),
             0,
-            "Diff in snippets vs integration supplyAPR test"
+            "Diff in snippets vs integration supplyAPY test"
         );
-        assertEq(snippets.supplyAPYMarket(marketParams, market), 0, "Diff in snippets vs integration supplyAPR test");
+        assertEq(snippets.supplyAPYMarket(marketParams, market), 0, "Diff in snippets vs integration supplyAPY test");
     }
 
     function testSupplyAPYMarket(Market memory market) public {
@@ -176,10 +177,10 @@ contract TestIntegrationSnippets is IntegrationTest {
         // handling in if-else the situation where utilization = 0 otherwise too many rejects
         if (utilization == 0) {
             assertEq(supplyTrue, 0, "supply rate == 0");
-            assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPR test");
+            assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
         } else {
             assertGt(supplyTrue, 0, "supply rate == 0");
-            assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPR test");
+            assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
         }
     }
 

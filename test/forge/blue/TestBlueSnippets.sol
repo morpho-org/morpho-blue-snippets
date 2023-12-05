@@ -99,15 +99,15 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(expectedTotalBorrow, morpho.totalBorrowAssets(id));
     }
 
-    function testBorrowAPR(Market memory market) public {
+    function testBorrowAPY(Market memory market) public {
         vm.assume(market.totalBorrowAssets > 0);
         vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
-        uint256 borrowTrue = irm.borrowRate(marketParams, market);
-        uint256 borrowToTest = snippets.borrowAPR(marketParams, market);
-        assertEq(borrowTrue, borrowToTest, "Diff in snippets vs integration borrowAPR test");
+        uint256 borrowTrue = irm.borrowRate(marketParams, market).wTaylorCompounded(1);
+        uint256 borrowToTest = snippets.borrowAPY(marketParams, market);
+        assertEq(borrowTrue, borrowToTest, "Diff in snippets vs integration borrowAPY test");
     }
 
-    function testSupplyAPREqual0(Market memory market) public {
+    function testSupplyAPYEqual0(Market memory market) public {
         vm.assume(market.totalBorrowAssets == 0);
         vm.assume(market.totalSupplyAssets > 100000);
         vm.assume(market.lastUpdate > 0);
@@ -115,16 +115,16 @@ contract TestIntegrationSnippets is BaseTest {
         vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
 
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
-        uint256 borrowTrue = irm.borrowRate(marketParams, market);
+        uint256 borrowTrue = irm.borrowRate(marketParams, market).wTaylorCompounded(1);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
         uint256 supplyTrue = borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
-        uint256 supplyToTest = snippets.supplyAPR(marketParams, market);
-        assertEq(supplyTrue, 0, "Diff in snippets vs integration supplyAPR test");
-        assertEq(supplyToTest, 0, "Diff in snippets vs integration supplyAPR test");
+        uint256 supplyToTest = snippets.supplyAPY(marketParams, market);
+        assertEq(supplyTrue, 0, "Diff in snippets vs integration supplyAPY test");
+        assertEq(supplyToTest, 0, "Diff in snippets vs integration supplyAPY test");
     }
 
-    function testSupplyAPR(Market memory market) public {
+    function testSupplyAPY(Market memory market) public {
         vm.assume(market.totalBorrowAssets > 0);
         vm.assume(market.fee < 1 ether);
         vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
@@ -134,9 +134,9 @@ contract TestIntegrationSnippets is BaseTest {
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
         uint256 supplyTrue = borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
-        uint256 supplyToTest = snippets.supplyAPR(marketParams, market);
+        uint256 supplyToTest = snippets.supplyAPY(marketParams, market);
 
-        assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPR test");
+        assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
     }
 
     function testHealthfactor(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
