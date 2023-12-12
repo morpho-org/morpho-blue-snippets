@@ -6,7 +6,7 @@ out/
 !/broadcast
 /broadcast/*/31337/
 /broadcast/**/dry-run/
-
+broadcast/
 # Docs
 docs/
 
@@ -15,3 +15,6 @@ docs/
 
 #node_modules
 node_modules
+
+config/
+scripts/
