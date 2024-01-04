@@ -274,6 +274,32 @@ contract BlueSnippets {
     }
 
     /**
+     * @notice Handles the withdrawal of a specified amount of assets by a user from a specific market. If the amount is
+     * greater than the total amount suplied by the user, withdraws all the shares of the user.
+     * @param marketParams The parameters of the market.
+     * @param amount The amount of assets the user is withdrawing.
+     * @param user The address of the user withdrawing the assets.
+     * @return assetsWithdrawn The actual amount of assets withdrawn.
+     * @return sharesWithdrawn The shares withdrawn in return for the assets.
+     */
+    function withdrawAmountOrAll(MarketParams memory marketParams, address user, uint256 amount)
+        external
+        returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
+    {
+        uint256 shares;
+        address onBehalf = user;
+        address receiver = user;
+        uint256 totalSupplyAssets = morpho.expectedSupplyAssets(marketParams, user);
+
+        if (amount >= totalSupplyAssets) {
+            shares = morpho.position(marketParams.id(), user).supplyShares;
+            (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, 0, shares, onBehalf, receiver);
+        } else {
+            (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, shares, onBehalf, receiver);
+        }
+    }
+
+    /**
      * @notice Handles the borrowing of assets by a user from a specific market.
      * @param marketParams The parameters of the market.
      * @param amount The amount of assets the user is borrowing.
@@ -355,5 +381,30 @@ contract BlueSnippets {
         uint256 amount = 0;
         address onBehalf = user;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares, onBehalf, hex"");
+    }
+
+    /**
+     * @notice Handles the repayment of a specified amount of assets by a user to a specific market. If the amount is
+     * greater than the total amount borrowed by the user, repays all the shares of the user.
+     * @param marketParams The parameters of the market.
+     * @param amount The amount of assets the user is repaying.
+     * @param user The address of the user repaying the assets.
+     * @return assetsRepaid The actual amount of assets repaid.
+     * @return sharesRepaid The shares repaid in return for the assets.
+     */
+    function repayAmountOrAll(MarketParams memory marketParams, address user, uint256 amount)
+        external
+        returns (uint256 assetsRepaid, uint256 sharesRepaid)
+    {
+        uint256 shares;
+        address onBehalf = user;
+        uint256 totalBorrowAssets = morpho.expectedTotalBorrowAssets(marketParams);
+
+        if (amount >= totalBorrowAssets) {
+            shares = morpho.position(marketParams.id(), user).borrowShares;
+            (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, 0, shares, onBehalf, hex"");
+        } else {
+            (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, shares, onBehalf, hex"");
+        }
     }
 }
