@@ -217,7 +217,7 @@ contract TestIntegrationSnippets is BaseTest {
         loanToken.setBalance(SUPPLIER, amountSupplied);
         vm.startPrank(SUPPLIER);
         snippets.supply(marketParams, amountSupplied, SUPPLIER);
-        (uint256 assetsWithdrawn,) = snippets.withdrawAmount(marketParams, amountWithdrawn, SUPPLIER);
+        (uint256 assetsWithdrawn,) = snippets.withdrawAmount(marketParams, amountWithdrawn);
         vm.stopPrank();
 
         assertEq(assetsWithdrawn, amountWithdrawn, "returned asset amount");
@@ -230,7 +230,7 @@ contract TestIntegrationSnippets is BaseTest {
         loanToken.setBalance(SUPPLIER, amount);
         vm.startPrank(SUPPLIER);
         snippets.supply(marketParams, amount, SUPPLIER);
-        (uint256 assetsWithdrawn,) = snippets.withdraw50Percent(marketParams, SUPPLIER);
+        (uint256 assetsWithdrawn,) = snippets.withdraw50Percent(marketParams);
         vm.stopPrank();
 
         assertEq(assetsWithdrawn, amount / 2, "returned asset amount");
@@ -242,7 +242,7 @@ contract TestIntegrationSnippets is BaseTest {
         loanToken.setBalance(SUPPLIER, amount);
         vm.startPrank(SUPPLIER);
         snippets.supply(marketParams, amount, SUPPLIER);
-        (uint256 assetsWithdrawn,) = snippets.withdrawAll(marketParams, SUPPLIER);
+        (uint256 assetsWithdrawn,) = snippets.withdrawAll(marketParams);
         vm.stopPrank();
 
         assertEq(assetsWithdrawn, amount, "returned asset amount");
@@ -256,7 +256,7 @@ contract TestIntegrationSnippets is BaseTest {
         collateralToken.setBalance(SUPPLIER, amountSupplied);
         vm.startPrank(SUPPLIER);
         snippets.supplyCollateral(marketParams, amountSupplied, SUPPLIER);
-        snippets.withdrawCollateral(marketParams, amountWithdrawn, SUPPLIER);
+        snippets.withdrawCollateral(marketParams, amountWithdrawn);
         vm.stopPrank();
 
         assertEq(morpho.collateral(id, SUPPLIER), amountSupplied - amountWithdrawn, "collateral");
@@ -279,7 +279,7 @@ contract TestIntegrationSnippets is BaseTest {
         collateralToken.setBalance(BORROWER, amountCollateral);
         vm.startPrank(BORROWER);
         snippets.supplyCollateral(marketParams, amountCollateral, BORROWER);
-        (uint256 returnAssets,) = snippets.borrow(marketParams, amountBorrowed, BORROWER);
+        (uint256 returnAssets,) = snippets.borrow(marketParams, amountBorrowed);
         vm.stopPrank();
 
         assertEq(returnAssets, amountBorrowed, "returned asset amount");
@@ -303,7 +303,7 @@ contract TestIntegrationSnippets is BaseTest {
         collateralToken.setBalance(BORROWER, amountCollateral);
         vm.startPrank(BORROWER);
         snippets.supplyCollateral(marketParams, amountCollateral, BORROWER);
-        snippets.borrow(marketParams, amountBorrowed, BORROWER);
+        snippets.borrow(marketParams, amountBorrowed);
         (uint256 returnAssetsRepaid,) = snippets.repayAmount(marketParams, amountRepaid, BORROWER);
         vm.stopPrank();
 
@@ -326,7 +326,7 @@ contract TestIntegrationSnippets is BaseTest {
         collateralToken.setBalance(BORROWER, amountCollateral);
         vm.startPrank(BORROWER);
         snippets.supplyCollateral(marketParams, amountCollateral, BORROWER);
-        (, uint256 returnBorrowShares) = snippets.borrow(marketParams, amountBorrowed, BORROWER);
+        (, uint256 returnBorrowShares) = snippets.borrow(marketParams, amountBorrowed);
         (, uint256 repaidShares) = snippets.repay50Percent(marketParams, BORROWER);
         vm.stopPrank();
 
@@ -348,7 +348,7 @@ contract TestIntegrationSnippets is BaseTest {
         collateralToken.setBalance(BORROWER, amountCollateral);
         vm.startPrank(BORROWER);
         snippets.supplyCollateral(marketParams, amountCollateral, BORROWER);
-        snippets.borrow(marketParams, amountBorrowed, BORROWER);
+        snippets.borrow(marketParams, amountBorrowed);
         (uint256 repaidAssets,) = snippets.repayAll(marketParams, BORROWER);
         vm.stopPrank();
 

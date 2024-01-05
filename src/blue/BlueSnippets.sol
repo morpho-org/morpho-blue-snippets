@@ -204,96 +204,91 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Handles the withdrawal of collateral by a user from a specific market of a specific amount. The withdrawn
-     * funds are going to the receiver.
+     * @notice Handles the withdrawal of collateral by the caller from a specific market of a specific amount. The
+     * withdrawn funds are going to the receiver.
      * @param marketParams The parameters of the market.
      * @param amount The amount of collateral the user is withdrawing.
-     * @param user The address of the user withdrawing the collateral.
      */
-    function withdrawCollateral(MarketParams memory marketParams, uint256 amount, address user) external {
-        address onBehalf = user;
-        address receiver = user;
+    function withdrawCollateral(MarketParams memory marketParams, uint256 amount) external {
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         morpho.withdrawCollateral(marketParams, amount, onBehalf, receiver);
     }
 
     /**
-     * @notice Handles the withdrawal of a specified amount of assets by a user from a specific market.
+     * @notice Handles the withdrawal of a specified amount of assets by the caller from a specific market.
      * @param marketParams The parameters of the market.
      * @param amount The amount of assets the user is withdrawing.
-     * @param user The address of the user withdrawing the assets.
      * @return assetsWithdrawn The actual amount of assets withdrawn.
      * @return sharesWithdrawn The shares withdrawn in return for the assets.
      */
-    function withdrawAmount(MarketParams memory marketParams, uint256 amount, address user)
+    function withdrawAmount(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         uint256 shares = 0;
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, shares, onBehalf, receiver);
     }
 
     /**
-     * @notice Handles the withdrawal of 50% of the assets by a user from a specific market.
+     * @notice Handles the withdrawal of 50% of the assets by the caller from a specific market.
      * @param marketParams The parameters of the market.
-     * @param user The address of the user withdrawing the assets.
      * @return assetsWithdrawn The actual amount of assets withdrawn.
      * @return sharesWithdrawn The shares withdrawn in return for the assets.
      */
-    function withdraw50Percent(MarketParams memory marketParams, address user)
+    function withdraw50Percent(MarketParams memory marketParams)
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         Id marketId = marketParams.id();
-        uint256 supplyShares = morpho.position(marketId, user).supplyShares;
+        uint256 supplyShares = morpho.position(marketId, msg.sender).supplyShares;
         uint256 amount = 0;
         uint256 shares = supplyShares / 2;
 
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, shares, onBehalf, receiver);
     }
 
     /**
-     * @notice Handles the withdrawal of all the assets by a user from a specific market.
+     * @notice Handles the withdrawal of all the assets by the caller from a specific market.
      * @param marketParams The parameters of the market.
-     * @param user The address of the user withdrawing the assets.
      * @return assetsWithdrawn The actual amount of assets withdrawn.
      * @return sharesWithdrawn The shares withdrawn in return for the assets.
      */
-    function withdrawAll(MarketParams memory marketParams, address user)
+    function withdrawAll(MarketParams memory marketParams)
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         Id marketId = marketParams.id();
-        uint256 supplyShares = morpho.position(marketId, user).supplyShares;
+        uint256 supplyShares = morpho.position(marketId, msg.sender).supplyShares;
         uint256 amount = 0;
 
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, supplyShares, onBehalf, receiver);
     }
 
     /**
-     * @notice Handles the borrowing of assets by a user from a specific market.
+     * @notice Handles the borrowing of assets by the caller from a specific market.
      * @param marketParams The parameters of the market.
      * @param amount The amount of assets the user is borrowing.
-     * @param user The address of the user borrowing the assets.
      * @return assetsBorrowed The actual amount of assets borrowed.
      * @return sharesBorrowed The shares borrowed in return for the assets.
      */
-    function borrow(MarketParams memory marketParams, uint256 amount, address user)
+    function borrow(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsBorrowed, uint256 sharesBorrowed)
     {
         uint256 shares = 0;
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         (assetsBorrowed, sharesBorrowed) = morpho.borrow(marketParams, amount, shares, onBehalf, receiver);
     }
