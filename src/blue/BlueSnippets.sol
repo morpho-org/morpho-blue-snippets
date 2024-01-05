@@ -180,8 +180,11 @@ contract BlueSnippets {
         returns (uint256 assetsSupplied, uint256 sharesSupplied)
     {
         ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
+
         uint256 shares = 0;
         address onBehalf = user;
+
         (assetsSupplied, sharesSupplied) = morpho.supply(marketParams, amount, shares, onBehalf, hex"");
     }
 
@@ -193,7 +196,10 @@ contract BlueSnippets {
      */
     function supplyCollateral(MarketParams memory marketParams, uint256 amount, address user) external {
         ERC20(marketParams.collateralToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.collateralToken).safeTransferFrom(msg.sender, address(this), amount);
+
         address onBehalf = user;
+
         morpho.supplyCollateral(marketParams, amount, onBehalf, hex"");
     }
 
@@ -242,7 +248,7 @@ contract BlueSnippets {
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         Id marketId = marketParams.id();
-        uint256 supplyShares = morpho.position(marketId, address(this)).supplyShares;
+        uint256 supplyShares = morpho.position(marketId, user).supplyShares;
         uint256 amount = 0;
         uint256 shares = supplyShares / 2;
 
@@ -264,7 +270,7 @@ contract BlueSnippets {
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         Id marketId = marketParams.id();
-        uint256 supplyShares = morpho.position(marketId, address(this)).supplyShares;
+        uint256 supplyShares = morpho.position(marketId, user).supplyShares;
         uint256 amount = 0;
 
         address onBehalf = user;
@@ -285,7 +291,6 @@ contract BlueSnippets {
         external
         returns (uint256 assetsBorrowed, uint256 sharesBorrowed)
     {
-        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
         uint256 shares = 0;
         address onBehalf = user;
         address receiver = user;
@@ -305,6 +310,9 @@ contract BlueSnippets {
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
+        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
+
         uint256 shares = 0;
         address onBehalf = user;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, shares, onBehalf, hex"");
@@ -321,14 +329,19 @@ contract BlueSnippets {
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
+        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+
         Id marketId = marketParams.id();
-        bytes32[] memory slots = new bytes32[](1);
-        slots[0] = MorphoStorageLib.positionBorrowSharesAndCollateralSlot(marketId, user);
-        bytes32[] memory values = morpho.extSloads(slots);
-        uint256 borrowShares = uint128(uint256(values[0]));
+
+        (,, uint256 totalBorrowAssets, uint256 totalBorrowShares) = morpho.expectedMarketBalances(marketParams);
+        uint256 borrowShares = morpho.position(marketId, user).borrowShares;
+
+        uint256 repaidAmount = (borrowShares / 2).toAssetsUp(totalBorrowAssets, totalBorrowShares);
+        ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
 
         uint256 amount = 0;
         address onBehalf = user;
+
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares / 2, onBehalf, hex"");
     }
 
@@ -343,15 +356,16 @@ contract BlueSnippets {
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
+        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+
         Id marketId = marketParams.id();
 
-        bytes32[] memory slots = new bytes32[](1);
-        slots[0] = MorphoStorageLib.positionBorrowSharesAndCollateralSlot(marketId, user);
-        bytes32[] memory values = morpho.extSloads(slots);
-        uint256 borrowShares = uint128(uint256(values[0]));
+        (,, uint256 totalBorrowAssets, uint256 totalBorrowShares) = morpho.expectedMarketBalances(marketParams);
+        uint256 borrowShares = morpho.position(marketId, user).borrowShares;
 
-        // alternative that works, but is more costly
-        // (, uint256 borrowShares, ) = morpho.position(marketId, address(this));
+        uint256 repaidAmount = borrowShares.toAssetsUp(totalBorrowAssets, totalBorrowShares);
+        ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
+
         uint256 amount = 0;
         address onBehalf = user;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares, onBehalf, hex"");
