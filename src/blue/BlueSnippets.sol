@@ -50,7 +50,7 @@ contract BlueSnippets {
     /// @notice Calculates the supply APY (Annual Percentage Yield) for a given market.
     /// @param marketParams The parameters of the market.
     /// @param market The market for which the supply APY is being calculated.
-    /// @return supplyRate The calculated supply APY.
+    /// @return supplyRate The calculated supply APY (scaled by WAD).
     function supplyAPY(MarketParams memory marketParams, Market memory market)
         public
         view
@@ -70,7 +70,7 @@ contract BlueSnippets {
     /// @notice Calculates the borrow APY (Annual Percentage Yield) for a given market.
     /// @param marketParams The parameters of the market.
     /// @param market The market for which the borrow APY is being calculated.
-    /// @return borrowRate The calculated borrow APY.
+    /// @return borrowRate The calculated borrow APY (scaled by WAD).
     function borrowAPY(MarketParams memory marketParams, Market memory market)
         public
         view
@@ -183,8 +183,7 @@ contract BlueSnippets {
         morpho.supplyCollateral(marketParams, amount, onBehalf, hex"");
     }
 
-    /// @notice Handles the withdrawal of collateral by the caller from a specific market of a specific amount. The
-    /// withdrawn funds are going to the receiver.
+    /// @notice Handles the withdrawal of collateral by the caller from a specific market of a specific amount.
     /// @param marketParams The parameters of the market.
     /// @param amount The amount of collateral the user is withdrawing.
     function withdrawCollateral(MarketParams memory marketParams, uint256 amount) external {
