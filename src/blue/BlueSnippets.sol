@@ -310,6 +310,7 @@ contract BlueSnippets {
     /// @return sharesRepaid The shares repaid in return for the assets.
     function repayAll(MarketParams memory marketParams) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
         ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+
         Id marketId = marketParams.id();
 
         (,, uint256 totalBorrowAssets, uint256 totalBorrowShares) = morpho.expectedMarketBalances(marketParams);
