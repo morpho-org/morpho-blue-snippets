@@ -286,16 +286,22 @@ contract BlueSnippets {
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
-        uint256 shares;
+        Id id = marketParams.id();
+
         address onBehalf = user;
         address receiver = user;
-        uint256 totalSupplyAssets = morpho.expectedSupplyAssets(marketParams, user);
 
-        if (amount >= totalSupplyAssets) {
-            shares = morpho.position(marketParams.id(), user).supplyShares;
+        morpho.accrueInterest(marketParams);
+        uint256 totalSupplyAssets = morpho.totalSupplyAssets(id);
+        uint256 totalSupplyShares = morpho.totalSupplyShares(id);
+        uint256 shares = morpho.supplyShares(id, user);
+
+        uint256 assetsMax = shares.toAssetsDown(totalSupplyAssets, totalSupplyShares);
+
+        if (amount >= assetsMax) {
             (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, 0, shares, onBehalf, receiver);
         } else {
-            (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, shares, onBehalf, receiver);
+            (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, 0, onBehalf, receiver);
         }
     }
 
@@ -396,15 +402,20 @@ contract BlueSnippets {
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
-        uint256 shares;
-        address onBehalf = user;
-        uint256 totalBorrowAssets = morpho.expectedTotalBorrowAssets(marketParams);
+        Id id = marketParams.id();
 
-        if (amount >= totalBorrowAssets) {
-            shares = morpho.position(marketParams.id(), user).borrowShares;
+        address onBehalf = user;
+
+        morpho.accrueInterest(marketParams);
+        uint256 totalBorrowAssets = morpho.totalBorrowAssets(id);
+        uint256 totalBorrowShares = morpho.totalBorrowShares(id);
+        uint256 shares = morpho.borrowShares(id, user);
+        uint256 assetsMax = shares.toAssetsUp(totalBorrowAssets, totalBorrowShares);
+
+        if (amount >= assetsMax) {
             (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, 0, shares, onBehalf, hex"");
         } else {
-            (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, shares, onBehalf, hex"");
+            (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, 0, onBehalf, hex"");
         }
     }
 }
