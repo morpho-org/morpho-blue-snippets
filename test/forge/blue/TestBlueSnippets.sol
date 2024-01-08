@@ -107,6 +107,15 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(borrowTrue, borrowToTest, "Diff in snippets vs integration borrowAPY test");
     }
 
+    function testBorrowAPYIdleMarket(Market memory market) public {
+        MarketParams memory idleMarket;
+        idleMarket.loanToken = address(loanToken);
+
+        uint256 borrowRate = snippets.borrowAPY(idleMarket, market);
+
+        assertEq(borrowRate, 0, "borrow rate");
+    }
+
     function testSupplyAPYEqual0(Market memory market) public {
         vm.assume(market.totalBorrowAssets == 0);
         vm.assume(market.totalSupplyAssets > 100000);
