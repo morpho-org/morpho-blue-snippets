@@ -80,9 +80,7 @@ contract BlueSnippets {
         view
         returns (uint256 borrowRate)
     {
-        if (marketParams.irm == address(0)) {
-            borrowRate = 0;
-        } else {
+        if (marketParams.irm != address(0)) {
             borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(1);
         }
     }
