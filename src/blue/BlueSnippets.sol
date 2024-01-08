@@ -168,14 +168,13 @@ contract BlueSnippets {
     // ---- MANAGING FUNCTIONS ----
 
     /**
-     * @notice Handles the supply of assets by a user to a specific market.
+     * @notice Handles the supply of assets by the caller to a specific market.
      * @param marketParams The parameters of the market.
      * @param amount The amount of assets the user is supplying.
-     * @param user The address of the user supplying the assets onBehalf of.
      * @return assetsSupplied The actual amount of assets supplied.
      * @return sharesSupplied The shares supplied in return for the assets.
      */
-    function supply(MarketParams memory marketParams, uint256 amount, address user)
+    function supply(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsSupplied, uint256 sharesSupplied)
     {
@@ -183,22 +182,21 @@ contract BlueSnippets {
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
 
         uint256 shares = 0;
-        address onBehalf = user;
+        address onBehalf = msg.sender;
 
         (assetsSupplied, sharesSupplied) = morpho.supply(marketParams, amount, shares, onBehalf, hex"");
     }
 
     /**
-     * @notice Handles the supply of collateral by a user to a specific market.
+     * @notice Handles the supply of collateral by the caller to a specific market.
      * @param marketParams The parameters of the market.
      * @param amount The amount of collateral the user is supplying.
-     * @param user The address of the user supplying the collateral on behalf of.
      */
-    function supplyCollateral(MarketParams memory marketParams, uint256 amount, address user) external {
+    function supplyCollateral(MarketParams memory marketParams, uint256 amount) external {
         ERC20(marketParams.collateralToken).safeApprove(address(morpho), type(uint256).max);
         ERC20(marketParams.collateralToken).safeTransferFrom(msg.sender, address(this), amount);
 
-        address onBehalf = user;
+        address onBehalf = msg.sender;
 
         morpho.supplyCollateral(marketParams, amount, onBehalf, hex"");
     }
@@ -294,14 +292,13 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Handles the repayment of a specified amount of assets by a user to a specific market.
+     * @notice Handles the repayment of a specified amount of assets by the caller to a specific market.
      * @param marketParams The parameters of the market.
      * @param amount The amount of assets the user is repaying.
-     * @param user The address of the user repaying the assets.
      * @return assetsRepaid The actual amount of assets repaid.
      * @return sharesRepaid The shares repaid in return for the assets.
      */
-    function repayAmount(MarketParams memory marketParams, uint256 amount, address user)
+    function repayAmount(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
@@ -309,18 +306,17 @@ contract BlueSnippets {
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
 
         uint256 shares = 0;
-        address onBehalf = user;
+        address onBehalf = msg.sender;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, shares, onBehalf, hex"");
     }
 
     /**
-     * @notice Handles the repayment of 50% of the borrowed assets by a user to a specific market.
+     * @notice Handles the repayment of 50% of the borrowed assets by the caller to a specific market.
      * @param marketParams The parameters of the market.
-     * @param user The address of the user repaying the assets.
      * @return assetsRepaid The actual amount of assets repaid.
      * @return sharesRepaid The shares repaid in return for the assets.
      */
-    function repay50Percent(MarketParams memory marketParams, address user)
+    function repay50Percent(MarketParams memory marketParams)
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
@@ -329,40 +325,36 @@ contract BlueSnippets {
         Id marketId = marketParams.id();
 
         (,, uint256 totalBorrowAssets, uint256 totalBorrowShares) = morpho.expectedMarketBalances(marketParams);
-        uint256 borrowShares = morpho.position(marketId, user).borrowShares;
+        uint256 borrowShares = morpho.position(marketId, msg.sender).borrowShares;
 
         uint256 repaidAmount = (borrowShares / 2).toAssetsUp(totalBorrowAssets, totalBorrowShares);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
 
         uint256 amount = 0;
-        address onBehalf = user;
+        address onBehalf = msg.sender;
 
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares / 2, onBehalf, hex"");
     }
 
     /**
-     * @notice Handles the repayment of all the borrowed assets by a user to a specific market.
+     * @notice Handles the repayment of all the borrowed assets by the caller to a specific market.
      * @param marketParams The parameters of the market.
-     * @param user The address of the user repaying the assets.
      * @return assetsRepaid The actual amount of assets repaid.
      * @return sharesRepaid The shares repaid in return for the assets.
      */
-    function repayAll(MarketParams memory marketParams, address user)
-        external
-        returns (uint256 assetsRepaid, uint256 sharesRepaid)
-    {
+    function repayAll(MarketParams memory marketParams) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
         ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
 
         Id marketId = marketParams.id();
 
         (,, uint256 totalBorrowAssets, uint256 totalBorrowShares) = morpho.expectedMarketBalances(marketParams);
-        uint256 borrowShares = morpho.position(marketId, user).borrowShares;
+        uint256 borrowShares = morpho.position(marketId, msg.sender).borrowShares;
 
         uint256 repaidAmount = borrowShares.toAssetsUp(totalBorrowAssets, totalBorrowShares);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
 
         uint256 amount = 0;
-        address onBehalf = user;
+        address onBehalf = msg.sender;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares, onBehalf, hex"");
     }
 }
