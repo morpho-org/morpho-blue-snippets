@@ -48,10 +48,10 @@ contract BlueSnippets {
     // weird oracles / markets created
 
     /**
-     * @notice Calculates the supply APY (Annual Percentage Yield) for a given market.
-     * @param marketParams The parameters of the market.
-     * @param market The market for which the supply APY is being calculated.
-     * @return supplyRate The calculated supply APY.
+     * /// @notice Calculates the supply APY (Annual Percentage Yield) for a given market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param market The market for which the supply APY is being calculated.
+     * /// @return supplyRate The calculated supply APY.
      */
     function supplyAPY(MarketParams memory marketParams, Market memory market)
         public
@@ -70,24 +70,26 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Calculates the borrow APY (Annual Percentage Yield) for a given market.
-     * @param marketParams The parameters of the market.
-     * @param market The market for which the borrow APY is being calculated.
-     * @return borrowRate The calculated borrow APY.
+     * /// @notice Calculates the borrow APY (Annual Percentage Yield) for a given market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param market The market for which the borrow APY is being calculated.
+     * /// @return borrowRate The calculated borrow APY.
      */
     function borrowAPY(MarketParams memory marketParams, Market memory market)
         public
         view
         returns (uint256 borrowRate)
     {
-        borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(1);
+        if (marketParams.irm != address(0)) {
+            borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(1);
+        }
     }
 
     /**
-     * @notice Calculates the total supply balance of a given user in a specific market.
-     * @param marketParams The parameters of the market.
-     * @param user The address of the user whose supply balance is being calculated.
-     * @return totalSupplyAssets The calculated total supply balance.
+     * /// @notice Calculates the total supply balance of a given user in a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param user The address of the user whose supply balance is being calculated.
+     * /// @return totalSupplyAssets The calculated total supply balance.
      */
     function supplyAssetsUser(MarketParams memory marketParams, address user)
         public
@@ -98,10 +100,10 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Calculates the total borrow balance of a given user in a specific market.
-     * @param marketParams The parameters of the market.
-     * @param user The address of the user whose borrow balance is being calculated.
-     * @return totalBorrowAssets The calculated total borrow balance.
+     * /// @notice Calculates the total borrow balance of a given user in a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param user The address of the user whose borrow balance is being calculated.
+     * /// @return totalBorrowAssets The calculated total borrow balance.
      */
     function borrowAssetsUser(MarketParams memory marketParams, address user)
         public
@@ -112,11 +114,11 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Calculates the total collateral balance of a given user in a specific market.
-     * @dev It uses extSloads to load only one storage slot of the Position struct and save gas.
-     * @param marketId The identifier of the market.
-     * @param user The address of the user whose collateral balance is being calculated.
-     * @return totalCollateralAssets The calculated total collateral balance.
+     * /// @notice Calculates the total collateral balance of a given user in a specific market.
+     * /// @dev It uses extSloads to load only one storage slot of the Position struct and save gas.
+     * /// @param marketId The identifier of the market.
+     * /// @param user The address of the user whose collateral balance is being calculated.
+     * /// @return totalCollateralAssets The calculated total collateral balance.
      */
     function collateralAssetsUser(Id marketId, address user) public view returns (uint256 totalCollateralAssets) {
         bytes32[] memory slots = new bytes32[](1);
@@ -126,29 +128,29 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Calculates the total supply of assets in a specific market.
-     * @param marketParams The parameters of the market.
-     * @return totalSupplyAssets The calculated total supply of assets.
+     * /// @notice Calculates the total supply of assets in a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @return totalSupplyAssets The calculated total supply of assets.
      */
     function marketTotalSupply(MarketParams memory marketParams) public view returns (uint256 totalSupplyAssets) {
         totalSupplyAssets = morpho.expectedTotalSupplyAssets(marketParams);
     }
 
     /**
-     * @notice Calculates the total borrow of assets in a specific market.
-     * @param marketParams The parameters of the market.
-     * @return totalBorrowAssets The calculated total borrow of assets.
+     * /// @notice Calculates the total borrow of assets in a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @return totalBorrowAssets The calculated total borrow of assets.
      */
     function marketTotalBorrow(MarketParams memory marketParams) public view returns (uint256 totalBorrowAssets) {
         totalBorrowAssets = morpho.expectedTotalBorrowAssets(marketParams);
     }
 
     /**
-     * @notice Calculates the health factor of a user in a specific market.
-     * @param marketParams The parameters of the market.
-     * @param id The identifier of the market.
-     * @param user The address of the user whose health factor is being calculated.
-     * @return healthFactor The calculated health factor.
+     * /// @notice Calculates the health factor of a user in a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param id The identifier of the market.
+     * /// @param user The address of the user whose health factor is being calculated.
+     * /// @return healthFactor The calculated health factor.
      */
     function userHealthFactor(MarketParams memory marketParams, Id id, address user)
         public
@@ -168,133 +170,130 @@ contract BlueSnippets {
     // ---- MANAGING FUNCTIONS ----
 
     /**
-     * @notice Handles the supply of assets by a user to a specific market.
-     * @param marketParams The parameters of the market.
-     * @param amount The amount of assets the user is supplying.
-     * @param user The address of the user supplying the assets onBehalf of.
-     * @return assetsSupplied The actual amount of assets supplied.
-     * @return sharesSupplied The shares supplied in return for the assets.
+     * /// @notice Handles the supply of assets by the caller to a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param amount The amount of assets the user is supplying.
+     * /// @return assetsSupplied The actual amount of assets supplied.
+     * /// @return sharesSupplied The shares supplied in return for the assets.
      */
-    function supply(MarketParams memory marketParams, uint256 amount, address user)
+    function supply(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsSupplied, uint256 sharesSupplied)
     {
         ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
+
         uint256 shares = 0;
-        address onBehalf = user;
+        address onBehalf = msg.sender;
+
         (assetsSupplied, sharesSupplied) = morpho.supply(marketParams, amount, shares, onBehalf, hex"");
     }
 
     /**
-     * @notice Handles the supply of collateral by a user to a specific market.
-     * @param marketParams The parameters of the market.
-     * @param amount The amount of collateral the user is supplying.
-     * @param user The address of the user supplying the collateral on behalf of.
+     * /// @notice Handles the supply of collateral by the caller to a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param amount The amount of collateral the user is supplying.
      */
-    function supplyCollateral(MarketParams memory marketParams, uint256 amount, address user) external {
+    function supplyCollateral(MarketParams memory marketParams, uint256 amount) external {
         ERC20(marketParams.collateralToken).safeApprove(address(morpho), type(uint256).max);
-        address onBehalf = user;
+        ERC20(marketParams.collateralToken).safeTransferFrom(msg.sender, address(this), amount);
+
+        address onBehalf = msg.sender;
+
         morpho.supplyCollateral(marketParams, amount, onBehalf, hex"");
     }
 
     /**
-     * @notice Handles the withdrawal of collateral by a user from a specific market of a specific amount. The withdrawn
-     * funds are going to the receiver.
-     * @param marketParams The parameters of the market.
-     * @param amount The amount of collateral the user is withdrawing.
-     * @param user The address of the user withdrawing the collateral.
+     * /// @notice Handles the withdrawal of collateral by the caller from a specific market of a specific amount. The
+     * /// withdrawn funds are going to the receiver.
+     * /// @param marketParams The parameters of the market.
+     * /// @param amount The amount of collateral the user is withdrawing.
      */
-    function withdrawCollateral(MarketParams memory marketParams, uint256 amount, address user) external {
-        address onBehalf = user;
-        address receiver = user;
+    function withdrawCollateral(MarketParams memory marketParams, uint256 amount) external {
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         morpho.withdrawCollateral(marketParams, amount, onBehalf, receiver);
     }
 
     /**
-     * @notice Handles the withdrawal of a specified amount of assets by a user from a specific market.
-     * @param marketParams The parameters of the market.
-     * @param amount The amount of assets the user is withdrawing.
-     * @param user The address of the user withdrawing the assets.
-     * @return assetsWithdrawn The actual amount of assets withdrawn.
-     * @return sharesWithdrawn The shares withdrawn in return for the assets.
+     * /// @notice Handles the withdrawal of a specified amount of assets by the caller from a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param amount The amount of assets the user is withdrawing.
+     * /// @return assetsWithdrawn The actual amount of assets withdrawn.
+     * /// @return sharesWithdrawn The shares withdrawn in return for the assets.
      */
-    function withdrawAmount(MarketParams memory marketParams, uint256 amount, address user)
+    function withdrawAmount(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         uint256 shares = 0;
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, shares, onBehalf, receiver);
     }
 
     /**
-     * @notice Handles the withdrawal of 50% of the assets by a user from a specific market.
-     * @param marketParams The parameters of the market.
-     * @param user The address of the user withdrawing the assets.
-     * @return assetsWithdrawn The actual amount of assets withdrawn.
-     * @return sharesWithdrawn The shares withdrawn in return for the assets.
+     * /// @notice Handles the withdrawal of 50% of the assets by the caller from a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @return assetsWithdrawn The actual amount of assets withdrawn.
+     * /// @return sharesWithdrawn The shares withdrawn in return for the assets.
      */
-    function withdraw50Percent(MarketParams memory marketParams, address user)
+    function withdraw50Percent(MarketParams memory marketParams)
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         Id marketId = marketParams.id();
-        uint256 supplyShares = morpho.position(marketId, address(this)).supplyShares;
+        uint256 supplyShares = morpho.position(marketId, msg.sender).supplyShares;
         uint256 amount = 0;
         uint256 shares = supplyShares / 2;
 
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, shares, onBehalf, receiver);
     }
 
     /**
-     * @notice Handles the withdrawal of all the assets by a user from a specific market.
-     * @param marketParams The parameters of the market.
-     * @param user The address of the user withdrawing the assets.
-     * @return assetsWithdrawn The actual amount of assets withdrawn.
-     * @return sharesWithdrawn The shares withdrawn in return for the assets.
+     * /// @notice Handles the withdrawal of all the assets by the caller from a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @return assetsWithdrawn The actual amount of assets withdrawn.
+     * /// @return sharesWithdrawn The shares withdrawn in return for the assets.
      */
-    function withdrawAll(MarketParams memory marketParams, address user)
+    function withdrawAll(MarketParams memory marketParams)
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         Id marketId = marketParams.id();
-        uint256 supplyShares = morpho.position(marketId, address(this)).supplyShares;
+        uint256 supplyShares = morpho.position(marketId, msg.sender).supplyShares;
         uint256 amount = 0;
 
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         (assetsWithdrawn, sharesWithdrawn) = morpho.withdraw(marketParams, amount, supplyShares, onBehalf, receiver);
     }
 
-    /**
-     * @notice Handles the withdrawal of a specified amount of assets by a user from a specific market. If the amount is
-     * greater than the total amount suplied by the user, withdraws all the shares of the user.
-     * @param marketParams The parameters of the market.
-     * @param amount The amount of assets the user is withdrawing.
-     * @param user The address of the user withdrawing the assets.
-     * @return assetsWithdrawn The actual amount of assets withdrawn.
-     * @return sharesWithdrawn The shares withdrawn in return for the assets.
-     */
-    function withdrawAmountOrAll(MarketParams memory marketParams, address user, uint256 amount)
+    /// @notice Handles the withdrawal of a specified amount of assets by the caller from a specific market. If the
+    /// amount is greater than the total amount suplied by the user, withdraws all the shares of the user.
+    /// @param marketParams The parameters of the market.
+    /// @param amount The amount of assets the user is withdrawing.
+    /// @return assetsWithdrawn The actual amount of assets withdrawn.
+    /// @return sharesWithdrawn The shares withdrawn in return for the assets.
+    function withdrawAmountOrAll(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
         Id id = marketParams.id();
 
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         morpho.accrueInterest(marketParams);
         uint256 totalSupplyAssets = morpho.totalSupplyAssets(id);
         uint256 totalSupplyShares = morpho.totalSupplyShares(id);
-        uint256 shares = morpho.supplyShares(id, user);
+        uint256 shares = morpho.supplyShares(id, msg.sender);
 
         uint256 assetsMax = shares.toAssetsDown(totalSupplyAssets, totalSupplyShares);
 
@@ -306,115 +305,117 @@ contract BlueSnippets {
     }
 
     /**
-     * @notice Handles the borrowing of assets by a user from a specific market.
-     * @param marketParams The parameters of the market.
-     * @param amount The amount of assets the user is borrowing.
-     * @param user The address of the user borrowing the assets.
-     * @return assetsBorrowed The actual amount of assets borrowed.
-     * @return sharesBorrowed The shares borrowed in return for the assets.
+     * /// @notice Handles the borrowing of assets by the caller from a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param amount The amount of assets the user is borrowing.
+     * /// @return assetsBorrowed The actual amount of assets borrowed.
+     * /// @return sharesBorrowed The shares borrowed in return for the assets.
      */
-    function borrow(MarketParams memory marketParams, uint256 amount, address user)
+    function borrow(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsBorrowed, uint256 sharesBorrowed)
     {
-        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
         uint256 shares = 0;
-        address onBehalf = user;
-        address receiver = user;
+        address onBehalf = msg.sender;
+        address receiver = msg.sender;
 
         (assetsBorrowed, sharesBorrowed) = morpho.borrow(marketParams, amount, shares, onBehalf, receiver);
     }
 
     /**
-     * @notice Handles the repayment of a specified amount of assets by a user to a specific market.
-     * @param marketParams The parameters of the market.
-     * @param amount The amount of assets the user is repaying.
-     * @param user The address of the user repaying the assets.
-     * @return assetsRepaid The actual amount of assets repaid.
-     * @return sharesRepaid The shares repaid in return for the assets.
+     * /// @notice Handles the repayment of a specified amount of assets by the caller to a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @param amount The amount of assets the user is repaying.
+     * /// @return assetsRepaid The actual amount of assets repaid.
+     * /// @return sharesRepaid The shares repaid in return for the assets.
      */
-    function repayAmount(MarketParams memory marketParams, uint256 amount, address user)
+    function repayAmount(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
+        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
+
         uint256 shares = 0;
-        address onBehalf = user;
+        address onBehalf = msg.sender;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, shares, onBehalf, hex"");
     }
 
     /**
-     * @notice Handles the repayment of 50% of the borrowed assets by a user to a specific market.
-     * @param marketParams The parameters of the market.
-     * @param user The address of the user repaying the assets.
-     * @return assetsRepaid The actual amount of assets repaid.
-     * @return sharesRepaid The shares repaid in return for the assets.
+     * /// @notice Handles the repayment of 50% of the borrowed assets by the caller to a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @return assetsRepaid The actual amount of assets repaid.
+     * /// @return sharesRepaid The shares repaid in return for the assets.
      */
-    function repay50Percent(MarketParams memory marketParams, address user)
+    function repay50Percent(MarketParams memory marketParams)
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
+        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+
         Id marketId = marketParams.id();
-        bytes32[] memory slots = new bytes32[](1);
-        slots[0] = MorphoStorageLib.positionBorrowSharesAndCollateralSlot(marketId, user);
-        bytes32[] memory values = morpho.extSloads(slots);
-        uint256 borrowShares = uint128(uint256(values[0]));
+
+        (,, uint256 totalBorrowAssets, uint256 totalBorrowShares) = morpho.expectedMarketBalances(marketParams);
+        uint256 borrowShares = morpho.position(marketId, msg.sender).borrowShares;
+
+        uint256 repaidAmount = (borrowShares / 2).toAssetsUp(totalBorrowAssets, totalBorrowShares);
+        ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
 
         uint256 amount = 0;
-        address onBehalf = user;
+        address onBehalf = msg.sender;
+
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares / 2, onBehalf, hex"");
     }
 
     /**
-     * @notice Handles the repayment of all the borrowed assets by a user to a specific market.
-     * @param marketParams The parameters of the market.
-     * @param user The address of the user repaying the assets.
-     * @return assetsRepaid The actual amount of assets repaid.
-     * @return sharesRepaid The shares repaid in return for the assets.
+     * /// @notice Handles the repayment of all the borrowed assets by the caller to a specific market.
+     * /// @param marketParams The parameters of the market.
+     * /// @return assetsRepaid The actual amount of assets repaid.
+     * /// @return sharesRepaid The shares repaid in return for the assets.
      */
-    function repayAll(MarketParams memory marketParams, address user)
-        external
-        returns (uint256 assetsRepaid, uint256 sharesRepaid)
-    {
+    function repayAll(MarketParams memory marketParams) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
+        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+
         Id marketId = marketParams.id();
 
-        bytes32[] memory slots = new bytes32[](1);
-        slots[0] = MorphoStorageLib.positionBorrowSharesAndCollateralSlot(marketId, user);
-        bytes32[] memory values = morpho.extSloads(slots);
-        uint256 borrowShares = uint128(uint256(values[0]));
+        (,, uint256 totalBorrowAssets, uint256 totalBorrowShares) = morpho.expectedMarketBalances(marketParams);
+        uint256 borrowShares = morpho.position(marketId, msg.sender).borrowShares;
 
-        // alternative that works, but is more costly
-        // (, uint256 borrowShares, ) = morpho.position(marketId, address(this));
+        uint256 repaidAmount = borrowShares.toAssetsUp(totalBorrowAssets, totalBorrowShares);
+        ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
+
         uint256 amount = 0;
-        address onBehalf = user;
+        address onBehalf = msg.sender;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares, onBehalf, hex"");
     }
 
-    /**
-     * @notice Handles the repayment of a specified amount of assets by a user to a specific market. If the amount is
-     * greater than the total amount borrowed by the user, repays all the shares of the user.
-     * @param marketParams The parameters of the market.
-     * @param amount The amount of assets the user is repaying.
-     * @param user The address of the user repaying the assets.
-     * @return assetsRepaid The actual amount of assets repaid.
-     * @return sharesRepaid The shares repaid in return for the assets.
-     */
-    function repayAmountOrAll(MarketParams memory marketParams, address user, uint256 amount)
+    /// @notice Handles the repayment of a specified amount of assets by the caller to a specific market. If the amount
+    /// is greater than the total amount borrowed by the user, repays all the shares of the user.
+    /// @param marketParams The parameters of the market.
+    /// @param amount The amount of assets the user is repaying.
+    /// @return assetsRepaid The actual amount of assets repaid.
+    /// @return sharesRepaid The shares repaid in return for the assets.
+    function repayAmountOrAll(MarketParams memory marketParams, uint256 amount)
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
+        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+
         Id id = marketParams.id();
 
-        address onBehalf = user;
+        address onBehalf = msg.sender;
 
         morpho.accrueInterest(marketParams);
         uint256 totalBorrowAssets = morpho.totalBorrowAssets(id);
         uint256 totalBorrowShares = morpho.totalBorrowShares(id);
-        uint256 shares = morpho.borrowShares(id, user);
+        uint256 shares = morpho.borrowShares(id, msg.sender);
         uint256 assetsMax = shares.toAssetsUp(totalBorrowAssets, totalBorrowShares);
 
         if (amount >= assetsMax) {
+            ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), assetsMax);
             (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, 0, shares, onBehalf, hex"");
         } else {
+            ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
             (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, 0, onBehalf, hex"");
         }
     }

@@ -157,6 +157,21 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         assertEq(snippets.supplyAPYMarket(marketParams, market), 0, "Diff in snippets vs integration supplyAPY test");
     }
 
+    function testSupplyAPYIdleMarket() public {
+        Market memory market;
+        MarketParams memory idleMarket;
+        idleMarket.loanToken = address(loanToken);
+
+        vm.prank(MORPHO_OWNER);
+        morpho.enableIrm(address(0));
+
+        morpho.createMarket(idleMarket);
+
+        uint256 supplyAPY = snippets.supplyAPYMarket(idleMarket, market);
+
+        assertEq(supplyAPY, 0, "supply APY");
+    }
+
     function testSupplyAPYMarket(Market memory market) public {
         vm.assume(market.totalBorrowAssets > 0);
         vm.assume(market.totalBorrowShares > 0);
