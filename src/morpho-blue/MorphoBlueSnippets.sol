@@ -22,7 +22,7 @@ import {ORACLE_PRICE_SCALE} from "@morpho-blue/libraries/ConstantsLib.sol";
 /// @author Morpho Labs
 /// @custom:contact security@morpho.org
 /// @notice The Morpho Snippets contract.
-contract BlueSnippets {
+contract MorphoBlueSnippets {
     using MathLib for uint256;
     using MorphoLib for IMorpho;
     using MorphoBalancesLib for IMorpho;

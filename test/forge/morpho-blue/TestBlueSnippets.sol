@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Id, IMorpho, MarketParams, Market} from "@morpho-blue/interfaces/IMorpho.sol";
-import {BlueSnippets} from "@snippets/blue/BlueSnippets.sol";
+import {MorphoBlueSnippets} from "@snippets/morpho-blue/MorphoBlueSnippets.sol";
 import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
@@ -24,11 +24,11 @@ contract TestIntegrationSnippets is BaseTest {
 
     uint256 testNumber;
 
-    BlueSnippets internal snippets;
+    MorphoBlueSnippets internal snippets;
 
     function setUp() public virtual override {
         super.setUp();
-        snippets = new BlueSnippets(address(morpho));
+        snippets = new MorphoBlueSnippets(address(morpho));
         testNumber = 42;
 
         vm.startPrank(SUPPLIER);
@@ -402,7 +402,6 @@ contract TestIntegrationSnippets is BaseTest {
         _supply(amountSupplied);
 
         oracle.setPrice(priceCollateral);
-
         collateralToken.setBalance(BORROWER, amountCollateral);
 
         vm.startPrank(BORROWER);
