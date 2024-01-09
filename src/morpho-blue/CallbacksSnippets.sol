@@ -12,7 +12,7 @@ import {SafeTransferLib, ERC20} from "@solmate/utils/SafeTransferLib.sol";
 import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 
-import {ISwap} from "@snippets/blue/interfaces/ISwap.sol";
+import {ISwap} from "@snippets/morpho-blue/interfaces/ISwap.sol";
 
 /*
 
