@@ -8,6 +8,9 @@ import {IOracle} from "@morpho-blue/interfaces/IOracle.sol";
 
 import "@morpho-blue/libraries/MathLib.sol";
 
+/// @title SwapMock
+/// @notice Mock contract for swapping between collateral and loan tokens.
+/// @dev Uses an Oracle for price data and MathLib for calculations.
 contract SwapMock {
     using MathLib for uint256;
 
@@ -16,6 +19,10 @@ contract SwapMock {
 
     address public immutable oracle;
 
+    /// @notice Creates a new SwapMock contract instance.
+    /// @param collateralAddress The address of the collateral token.
+    /// @param loanAddress The address of the loan token.
+    /// @param oracleAddress The address of the oracle.
     constructor(address collateralAddress, address loanAddress, address oracleAddress) {
         collateralToken = ERC20Mock(collateralAddress);
         loanToken = ERC20Mock(loanAddress);
@@ -23,6 +30,9 @@ contract SwapMock {
         oracle = oracleAddress;
     }
 
+    /// @notice Swaps collateral token to loan token.
+    /// @param amount The amount of collateral token to swap.
+    /// @return returnedAmount The amount of loan token returned after the swap.
     function swapCollatToLoan(uint256 amount) external returns (uint256 returnedAmount) {
         returnedAmount = amount.mulDivDown(IOracle(oracle).price(), ORACLE_PRICE_SCALE);
 
@@ -32,6 +42,9 @@ contract SwapMock {
         loanToken.transfer(msg.sender, returnedAmount);
     }
 
+    /// @notice Swaps loan token to collateral token.
+    /// @param amount The amount of loan token to swap.
+    /// @return returnedAmount The amount of collateral token returned after the swap.
     function swapLoanToCollat(uint256 amount) external returns (uint256 returnedAmount) {
         returnedAmount = amount.mulDivDown(ORACLE_PRICE_SCALE, IOracle(oracle).price());
 
