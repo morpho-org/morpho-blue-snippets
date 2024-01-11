@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@morpho-blue-test/BaseTest.sol";
-import {SwapMock} from "@snippets/blue/mocks/SwapMock.sol";
+import {SwapMock} from "@snippets/morpho-blue/mocks/SwapMock.sol";
 
 contract TestIntegrationSnippets is BaseTest {
     SwapMock internal swapMock;

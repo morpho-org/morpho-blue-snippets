@@ -12,7 +12,7 @@ import {SafeTransferLib, ERC20} from "@solmate/utils/SafeTransferLib.sol";
 import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
 
-import {ISwap} from "@snippets/blue/interfaces/ISwap.sol";
+import {ISwap} from "@snippets/morpho-blue/interfaces/ISwap.sol";
 
 /*
 
@@ -49,6 +49,24 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         _;
     }
 
+    // Type of liquidation callback data
+    struct LiquidateData {
+        address collateralToken;
+    }
+
+    // Type of collateral supply callback data
+    struct SupplyCollateralData {
+        uint256 loanAmount;
+        MarketParams marketParams;
+        address user;
+    }
+
+    // Type of repay callback data
+    struct RepayData {
+        MarketParams marketParams;
+        address user;
+    }
+
     /* 
     
     Callbacks
@@ -63,11 +81,10 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
     */
 
     function onMorphoSupplyCollateral(uint256 amount, bytes calldata data) external onlyMorpho {
-        (uint256 toBorrow, MarketParams memory marketParams, address user) =
-            abi.decode(data, (uint256, MarketParams, address));
-        (uint256 amountBis,) = morpho.borrow(marketParams, toBorrow, 0, user, address(this));
+        SupplyCollateralData memory decoded = abi.decode(data, (SupplyCollateralData));
+        (uint256 amountBis,) = morpho.borrow(decoded.marketParams, decoded.loanAmount, 0, decoded.user, address(this));
 
-        ERC20(marketParams.loanToken).approve(address(swapper), amount);
+        ERC20(decoded.marketParams.loanToken).approve(address(swapper), amount);
 
         // Logic to Implement. Following example is a swap, could be a 'unwrap + stake + wrap staked' for
         // wETH(wstETH) Market
@@ -76,20 +93,20 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
     }
 
     function onMorphoLiquidate(uint256 repaidAssets, bytes calldata data) external onlyMorpho {
-        (address collateralToken) = abi.decode(data, (address));
+        LiquidateData memory decoded = abi.decode(data, (LiquidateData));
 
-        ERC20(collateralToken).approve(address(swapper), type(uint256).max);
+        ERC20(decoded.collateralToken).approve(address(swapper), type(uint256).max);
 
-        swapper.swapCollatToLoan(ERC20(collateralToken).balanceOf(address(this)));
+        swapper.swapCollatToLoan(ERC20(decoded.collateralToken).balanceOf(address(this)));
     }
 
     function onMorphoRepay(uint256 amount, bytes calldata data) external onlyMorpho {
-        (MarketParams memory marketParams, address user) = abi.decode(data, (MarketParams, address));
-        uint256 toWithdraw = morpho.collateral(marketParams.id(), user);
+        RepayData memory decoded = abi.decode(data, (RepayData));
+        uint256 toWithdraw = morpho.collateral(decoded.marketParams.id(), decoded.user);
 
-        morpho.withdrawCollateral(marketParams, toWithdraw, user, address(this));
+        morpho.withdrawCollateral(decoded.marketParams, toWithdraw, decoded.user, address(this));
 
-        ERC20(marketParams.collateralToken).approve(address(swapper), amount);
+        ERC20(decoded.marketParams.collateralToken).approve(address(swapper), amount);
         swapper.swapCollatToLoan(amount);
     }
 
@@ -125,7 +142,10 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         _approveMaxTo(marketParams.collateralToken, address(morpho));
 
         morpho.supplyCollateral(
-            marketParams, finalAmountcollateral, msg.sender, abi.encode(loanAmount, marketParams, msg.sender)
+            marketParams,
+            finalAmountcollateral,
+            msg.sender,
+            abi.encode(SupplyCollateralData(loanAmount, marketParams, msg.sender))
         );
     }
 
@@ -139,7 +159,8 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
 
         _approveMaxTo(marketParams.loanToken, address(morpho));
 
-        (amountRepayed,) = morpho.repay(marketParams, 0, totalShares, msg.sender, abi.encode(marketParams, msg.sender));
+        (amountRepayed,) =
+            morpho.repay(marketParams, 0, totalShares, msg.sender, abi.encode(RepayData(marketParams, msg.sender)));
 
         ERC20(marketParams.collateralToken).safeTransfer(
             msg.sender, ERC20(marketParams.collateralToken).balanceOf(address(this))
@@ -168,7 +189,11 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         _approveMaxTo(marketParams.loanToken, address(morpho));
 
         (seizedAssets, repaidAssets) = morpho.liquidate(
-            marketParams, borrower, seizedCollateral, repaidShares, abi.encode(marketParams.collateralToken)
+            marketParams,
+            borrower,
+            seizedCollateral,
+            repaidShares,
+            abi.encode(LiquidateData(marketParams.collateralToken))
         );
 
         ERC20(marketParams.loanToken).safeTransfer(msg.sender, ERC20(marketParams.loanToken).balanceOf(address(this)));

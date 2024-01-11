@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "@morpho-blue-test/BaseTest.sol";
-import {ISwap} from "@snippets/blue/interfaces/ISwap.sol";
-import {SwapMock} from "@snippets/blue/mocks/SwapMock.sol";
-import {CallbacksSnippets} from "@snippets/blue/CallbacksSnippets.sol";
+import {ISwap} from "@snippets/morpho-blue/interfaces/ISwap.sol";
+import {SwapMock} from "@snippets/morpho-blue/mocks/SwapMock.sol";
+import {CallbacksSnippets} from "@snippets/morpho-blue/CallbacksSnippets.sol";
 import {ERC20} from "@solmate/utils/SafeTransferLib.sol";
 
 contract CallbacksIntegrationTest is BaseTest {

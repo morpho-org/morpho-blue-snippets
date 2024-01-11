@@ -102,10 +102,15 @@ contract MetaMorphoSnippets {
         view
         returns (uint256 supplyRate)
     {
-        (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
-
         // Get the borrow rate
-        uint256 borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market);
+        uint256 borrowRate;
+        if (marketParams.irm == address(0)) {
+            return 0;
+        } else {
+            borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(1);
+        }
+
+        (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
         // Get the supply rate
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
