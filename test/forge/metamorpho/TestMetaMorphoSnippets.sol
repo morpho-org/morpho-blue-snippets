@@ -311,7 +311,7 @@ contract TestMetaMorphoSnippets is IntegrationTest {
 
         vm.startPrank(BORROWER);
         morpho.supplyCollateral(allMarkets[0], 1 ether, BORROWER, hex"");
-        morpho.borrow(allMarkets[0], 0.5 ether, 0, BORROWER, BORROWER);
+        morpho.borrow(allMarkets[0], 0.75 ether, 0, BORROWER, BORROWER);
         vm.stopPrank();
 
         MarketParams[] memory srcMarketParams = new MarketParams[](3);
@@ -321,10 +321,10 @@ contract TestMetaMorphoSnippets is IntegrationTest {
 
         snippets.reallocateAvailableLiquidity(address(vault), srcMarketParams, idleParams);
 
-        assertEq(morpho.supplyShares(allMarkets[0].id(), address(vault)), 0.5e24, "supplyShares(0)");
+        assertEq(morpho.supplyShares(allMarkets[0].id(), address(vault)), 0.75e24, "supplyShares(0)");
         assertEq(morpho.supplyShares(allMarkets[1].id(), address(vault)), 0, "supplyShares(1)");
         assertEq(morpho.supplyShares(allMarkets[2].id(), address(vault)), 0, "supplyShares(2)");
-        assertEq(morpho.supplyShares(idleParams.id(), address(vault)), 3.5e24, "supplyShares(idle)");
+        assertEq(morpho.supplyShares(idleParams.id(), address(vault)), 3.25e24, "supplyShares(idle)");
     }
 
     function _setCaps() internal {
