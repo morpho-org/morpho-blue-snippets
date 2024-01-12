@@ -184,7 +184,7 @@ contract MetaMorphoSnippets {
     }
 
     /// @notice Withdraws the maximum available liquidity from the markets `srcMarketParams`, and supply the withdrawn
-    /// assets into srcMarketParams.
+    /// assets into destMarketParams.
     /// @dev The snippets contract must be registered as an allocator of the vault for the fuction to be called
     /// successfully.
     /// @param vault The address of the MetaMorpho vault.
