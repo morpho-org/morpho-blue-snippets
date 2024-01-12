@@ -11,6 +11,7 @@ import {SharesMathLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/
 import {MorphoLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
 import {MorphoBalancesLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/periphery/MorphoBalancesLib.sol";
 import {MathLib, WAD} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MathLib.sol";
+import {UtilsLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/UtilsLib.sol";
 
 import {Math} from "@openzeppelin/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
@@ -22,6 +23,7 @@ contract MetaMorphoSnippets {
     using MarketParamsLib for MarketParams;
     using MorphoLib for IMorpho;
     using MorphoBalancesLib for IMorpho;
+    using UtilsLib for uint256;
 
     IMorpho public immutable morpho;
 
@@ -181,12 +183,13 @@ contract MetaMorphoSnippets {
         redeemed = IMetaMorpho(vault).redeem(maxToRedeem, receiver, msg.sender);
     }
 
-    function _approveMaxVault(address vault) internal {
-        if (ERC20(IMetaMorpho(vault).asset()).allowance(address(this), vault) == 0) {
-            ERC20(IMetaMorpho(vault).asset()).approve(vault, type(uint256).max);
-        }
-    }
-
+    /// @notice Withdraws the maximum available liquidity from the markets `srcMarketParams`, and supply the withdrawn
+    /// assets into srcMarketParams.
+    /// @dev The snippets contract must be registered as an allocator of the vault for the fuction to be called
+    /// successfully.
+    /// @param vault The address of the MetaMorpho vault.
+    /// @param srcMarketParams The market parameters of the markets to withdraw from.
+    /// @param destMarketParams The market parameter of the market to supply to.
     function reallocateAvailableLiquidity(
         address vault,
         MarketParams[] calldata srcMarketParams,
@@ -206,14 +209,18 @@ contract MetaMorphoSnippets {
 
             uint256 availableLiquidity = totalSupplyAssets - totalBorrowAssets;
 
-            allocations[i] = MarketAllocation({
-                marketParams: marketParams,
-                assets: availableLiquidity >= supplyAssets ? 0 : availableLiquidity
-            });
+            allocations[i] =
+                MarketAllocation({marketParams: marketParams, assets: supplyAssets.zeroFloorSub(availableLiquidity)});
         }
 
         allocations[nbMarkets] = MarketAllocation({marketParams: destMarketParams, assets: type(uint256).max});
 
         IMetaMorpho(vault).reallocate(allocations);
+    }
+
+    function _approveMaxVault(address vault) internal {
+        if (ERC20(IMetaMorpho(vault).asset()).allowance(address(this), vault) == 0) {
+            ERC20(IMetaMorpho(vault).asset()).approve(vault, type(uint256).max);
+        }
     }
 }
