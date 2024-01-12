@@ -1,23 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IMetaMorpho} from "@metamorpho/interfaces/IMetaMorpho.sol";
+import {IMetaMorpho, MarketAllocation} from "@metamorpho/interfaces/IMetaMorpho.sol";
 import {ConstantsLib} from "@metamorpho/libraries/ConstantsLib.sol";
 
 import {MarketParamsLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MarketParamsLib.sol";
 import {Id, IMorpho, Market, MarketParams} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IMorpho.sol";
 import {IIrm} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IIrm.sol";
+import {SharesMathLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/SharesMathLib.sol";
+import {MorphoLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
 import {MorphoBalancesLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/periphery/MorphoBalancesLib.sol";
 import {MathLib, WAD} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MathLib.sol";
+import {UtilsLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/UtilsLib.sol";
 
 import {Math} from "@openzeppelin/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
 
 contract MetaMorphoSnippets {
+    using SharesMathLib for uint256;
     using MathLib for uint256;
     using Math for uint256;
     using MarketParamsLib for MarketParams;
+    using MorphoLib for IMorpho;
     using MorphoBalancesLib for IMorpho;
+    using UtilsLib for uint256;
 
     IMorpho public immutable morpho;
 
@@ -141,7 +147,7 @@ contract MetaMorphoSnippets {
         avgSupplyRate = ratio.wDivUp(totalAmount);
     }
 
-    // // --- MANAGING FUNCTIONS ---
+    // --- MANAGING FUNCTIONS ---
 
     /// @notice Deposit `assets` into the `vault` on behalf of `onBehalf`.
     /// @dev Sender must approve the snippets contract to manage his tokens before the call.
@@ -175,6 +181,41 @@ contract MetaMorphoSnippets {
     function redeemAllFromVault(address vault, address receiver) public returns (uint256 redeemed) {
         uint256 maxToRedeem = IMetaMorpho(vault).maxRedeem(msg.sender);
         redeemed = IMetaMorpho(vault).redeem(maxToRedeem, receiver, msg.sender);
+    }
+
+    /// @notice Withdraws the maximum available liquidity from the markets `srcMarketParams`, and supply the withdrawn
+    /// assets into destMarketParams.
+    /// @dev The snippets contract must be registered as an allocator of the vault for the fuction to be called
+    /// successfully.
+    /// @param vault The address of the MetaMorpho vault.
+    /// @param srcMarketParams The market parameters of the markets to withdraw from.
+    /// @param destMarketParams The market parameter of the market to supply to.
+    function reallocateAvailableLiquidity(
+        address vault,
+        MarketParams[] calldata srcMarketParams,
+        MarketParams calldata destMarketParams
+    ) public {
+        uint256 nbMarkets = srcMarketParams.length;
+        MarketAllocation[] memory allocations = new MarketAllocation[](nbMarkets + 1);
+
+        for (uint256 i; i < nbMarkets; ++i) {
+            MarketParams memory marketParams = srcMarketParams[i];
+
+            (uint256 totalSupplyAssets, uint256 totalSupplyShares, uint256 totalBorrowAssets,) =
+                morpho.expectedMarketBalances(marketParams);
+
+            uint256 supplyShares = morpho.supplyShares(marketParams.id(), vault);
+            uint256 supplyAssets = supplyShares.toAssetsDown(totalSupplyAssets, totalSupplyShares);
+
+            uint256 availableLiquidity = totalSupplyAssets - totalBorrowAssets;
+
+            allocations[i] =
+                MarketAllocation({marketParams: marketParams, assets: supplyAssets.zeroFloorSub(availableLiquidity)});
+        }
+
+        allocations[nbMarkets] = MarketAllocation({marketParams: destMarketParams, assets: type(uint256).max});
+
+        IMetaMorpho(vault).reallocate(allocations);
     }
 
     function _approveMaxVault(address vault) internal {

@@ -293,6 +293,40 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         assertEq(morpho.expectedSupplyAssets(allMarkets[0], address(vault)), 0, "expectedSupplyAssets(vault)");
     }
 
+    function testReallocateAvailableLiquidityIdle() public {
+        _setCap(allMarkets[0], 1 ether);
+        _setCap(allMarkets[1], 1 ether);
+        _setCap(allMarkets[2], 1 ether);
+        _setCap(idleParams, type(uint128).max);
+
+        vm.prank(OWNER);
+        vault.setIsAllocator(address(snippets), true);
+
+        loanToken.setBalance(SUPPLIER, 4 ether);
+
+        vm.prank(SUPPLIER);
+        vault.deposit(4 ether, ONBEHALF);
+
+        collateralToken.setBalance(BORROWER, 1 ether);
+
+        vm.startPrank(BORROWER);
+        morpho.supplyCollateral(allMarkets[0], 1 ether, BORROWER, hex"");
+        morpho.borrow(allMarkets[0], 0.75 ether, 0, BORROWER, BORROWER);
+        vm.stopPrank();
+
+        MarketParams[] memory srcMarketParams = new MarketParams[](3);
+        srcMarketParams[0] = allMarkets[0];
+        srcMarketParams[1] = allMarkets[1];
+        srcMarketParams[2] = allMarkets[2];
+
+        snippets.reallocateAvailableLiquidity(address(vault), srcMarketParams, idleParams);
+
+        assertEq(morpho.supplyShares(allMarkets[0].id(), address(vault)), 0.75e24, "supplyShares(0)");
+        assertEq(morpho.supplyShares(allMarkets[1].id(), address(vault)), 0, "supplyShares(1)");
+        assertEq(morpho.supplyShares(allMarkets[2].id(), address(vault)), 0, "supplyShares(2)");
+        assertEq(morpho.supplyShares(idleParams.id(), address(vault)), 3.25e24, "supplyShares(idle)");
+    }
+
     function _setCaps() internal {
         _setCap(allMarkets[0], CAP);
         _setCap(allMarkets[1], CAP);
