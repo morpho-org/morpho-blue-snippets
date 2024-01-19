@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ORACLE_PRICE_SCALE} from "@morpho-blue/libraries/ConstantsLib.sol";
+import {ORACLE_PRICE_SCALE} from "../../../lib/morpho-blue/src/libraries/ConstantsLib.sol";
 
-import "@morpho-blue/mocks/ERC20Mock.sol";
-import {IOracle} from "@morpho-blue/interfaces/IOracle.sol";
+import "../../../lib/morpho-blue/src/mocks/ERC20Mock.sol";
+import {IOracle} from "../../../lib/morpho-blue/src/interfaces/IOracle.sol";
 
-import "@morpho-blue/libraries/MathLib.sol";
+import "../../../lib/morpho-blue/src/libraries/MathLib.sol";
 
 /// @title SwapMock
 /// @notice Mock contract for swapping between collateral and loan tokens.

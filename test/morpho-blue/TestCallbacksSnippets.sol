@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.0;
 
-import "@morpho-blue-test/BaseTest.sol";
-import {ISwap} from "@snippets/morpho-blue/interfaces/ISwap.sol";
-import {SwapMock} from "@snippets/morpho-blue/mocks/SwapMock.sol";
-import {CallbacksSnippets} from "@snippets/morpho-blue/CallbacksSnippets.sol";
-import {ERC20} from "@solmate/utils/SafeTransferLib.sol";
+import "../../lib/morpho-blue/test/forge/BaseTest.sol";
+import {ISwap} from "../../src/morpho-blue/interfaces/ISwap.sol";
+import {SwapMock} from "../../src/morpho-blue/mocks/SwapMock.sol";
+import {CallbacksSnippets} from "../../src/morpho-blue/CallbacksSnippets.sol";
+import {ERC20} from "../../lib/solmate/src/utils/SafeTransferLib.sol";
 
 contract CallbacksIntegrationTest is BaseTest {
     using MathLib for uint256;

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.0;
 
-import {MetaMorphoSnippets} from "@snippets/metamorpho/MetaMorphoSnippets.sol";
-import "@metamorpho-test/helpers/IntegrationTest.sol";
+import {MetaMorphoSnippets} from "../../src/metamorpho/MetaMorphoSnippets.sol";
+import "../../lib/metamorpho/test/forge/helpers/IntegrationTest.sol";
 
-import {SafeCast} from "@openzeppelin/utils/math/SafeCast.sol";
+import {SafeCast} from "../../lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 
 contract TestMetaMorphoSnippets is IntegrationTest {
     using MorphoBalancesLib for IMorpho;
