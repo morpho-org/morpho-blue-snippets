@@ -77,7 +77,7 @@ contract MorphoBlueSnippets {
         returns (uint256 borrowRate)
     {
         if (marketParams.irm != address(0)) {
-            borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(1);
+            borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         }
     }
 

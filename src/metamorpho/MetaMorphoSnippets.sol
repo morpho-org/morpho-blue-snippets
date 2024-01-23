@@ -113,7 +113,7 @@ contract MetaMorphoSnippets {
         if (marketParams.irm == address(0)) {
             return 0;
         } else {
-            borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(1);
+            borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         }
 
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
@@ -121,7 +121,7 @@ contract MetaMorphoSnippets {
         // Get the supply rate
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        supplyRate = borrowRate.wTaylorCompounded(1).wMulDown(1 ether - market.fee).wMulDown(utilization);
+        supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
     }
 
     /// @notice Returns the current APY of a MetaMorpho vault.
