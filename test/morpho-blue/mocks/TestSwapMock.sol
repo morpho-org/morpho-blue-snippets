@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.0;
 
-import "@morpho-blue-test/BaseTest.sol";
-import {SwapMock} from "@snippets/morpho-blue/mocks/SwapMock.sol";
+import "../../../lib/morpho-blue/test/forge/BaseTest.sol";
+import {SwapMock} from "../../../src/morpho-blue/mocks/SwapMock.sol";
 
 contract TestIntegrationSnippets is BaseTest {
     SwapMock internal swapMock;

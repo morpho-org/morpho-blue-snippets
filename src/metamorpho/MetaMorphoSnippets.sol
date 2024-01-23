@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IMetaMorpho, MarketAllocation} from "@metamorpho/interfaces/IMetaMorpho.sol";
-import {ConstantsLib} from "@metamorpho/libraries/ConstantsLib.sol";
+import {IMetaMorpho} from "../../lib/metamorpho/src/interfaces/IMetaMorpho.sol";
+import {ConstantsLib} from "../../lib/metamorpho/src/libraries/ConstantsLib.sol";
 
 import {MarketParamsLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MarketParamsLib.sol";
 import {Id, IMorpho, Market, MarketParams} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IMorpho.sol";
@@ -13,8 +13,8 @@ import {MorphoBalancesLib} from "../../lib/metamorpho/lib/morpho-blue/src/librar
 import {MathLib, WAD} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MathLib.sol";
 import {UtilsLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/UtilsLib.sol";
 
-import {Math} from "@openzeppelin/utils/math/Math.sol";
-import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
+import {Math} from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 contract MetaMorphoSnippets {
     using SharesMathLib for uint256;

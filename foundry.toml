@@ -1,10 +1,10 @@
 [profile.default]
 src = "src"
-test = "test/forge"
+test = "test"
 evm_version = "paris"
 fs_permissions = [
     { access = "read", path = "./config/"},
-    { access = "read", path = "./lib/morpho-blue/out/"}
+    { access = "read", path = "./out/"}
 ]
 libs = ["node_modules", "lib"]
 

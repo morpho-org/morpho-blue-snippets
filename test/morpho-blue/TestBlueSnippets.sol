@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.0;
 
-import {Id, IMorpho, MarketParams, Market} from "@morpho-blue/interfaces/IMorpho.sol";
-import {MorphoBlueSnippets} from "@snippets/morpho-blue/MorphoBlueSnippets.sol";
-import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
-import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
-import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
-import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
-import {SharesMathLib} from "@morpho-blue/libraries/SharesMathLib.sol";
+import {Id, IMorpho, MarketParams, Market} from "../../lib/morpho-blue/src/interfaces/IMorpho.sol";
+import {MorphoBlueSnippets} from "../../src/morpho-blue/MorphoBlueSnippets.sol";
+import {MorphoBalancesLib} from "../../lib/morpho-blue/src/libraries/periphery/MorphoBalancesLib.sol";
+import {MarketParamsLib} from "../../lib/morpho-blue/src/libraries/MarketParamsLib.sol";
+import {MorphoLib} from "../../lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
+import {MathLib} from "../../lib/morpho-blue/src/libraries/MathLib.sol";
+import {SharesMathLib} from "../../lib/morpho-blue/src/libraries/SharesMathLib.sol";
 
 // we need to import everything in there
-import "@morpho-blue-test/BaseTest.sol";
+import "../../lib/morpho-blue/test/forge/BaseTest.sol";
 
 contract TestIntegrationSnippets is BaseTest {
     using MathLib for uint256;

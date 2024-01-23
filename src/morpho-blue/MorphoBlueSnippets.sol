@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Id, IMorpho, MarketParams, Market} from "@morpho-blue/interfaces/IMorpho.sol";
-import {IERC20} from "@morpho-blue/interfaces/IERC20.sol";
-import {IIrm} from "@morpho-blue/interfaces/IIrm.sol";
-import {IOracle} from "@morpho-blue/interfaces/IOracle.sol";
+import {Id, IMorpho, MarketParams, Market} from "../../lib/morpho-blue/src/interfaces/IMorpho.sol";
+import {IERC20} from "../../lib/morpho-blue/src/interfaces/IERC20.sol";
+import {IIrm} from "../../lib/morpho-blue/src/interfaces/IIrm.sol";
+import {IOracle} from "../../lib/morpho-blue/src/interfaces/IOracle.sol";
 
-import {ERC20} from "@openzeppelin4/token/ERC20/ERC20.sol";
-import {SafeERC20} from "@openzeppelin4/token/ERC20/utils/SafeERC20.sol";
-import {MorphoBalancesLib} from "@morpho-blue/libraries/periphery/MorphoBalancesLib.sol";
-import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
-import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
-import {MorphoStorageLib} from "@morpho-blue/libraries/periphery/MorphoStorageLib.sol";
-import {MathLib} from "@morpho-blue/libraries/MathLib.sol";
+import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {MorphoBalancesLib} from "../../lib/morpho-blue/src/libraries/periphery/MorphoBalancesLib.sol";
+import {MarketParamsLib} from "../../lib/morpho-blue/src/libraries/MarketParamsLib.sol";
+import {MorphoLib} from "../../lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
+import {MorphoStorageLib} from "../../lib/morpho-blue/src/libraries/periphery/MorphoStorageLib.sol";
+import {MathLib} from "../../lib/morpho-blue/src/libraries/MathLib.sol";
 
-import {SharesMathLib} from "@morpho-blue/libraries/SharesMathLib.sol";
+import {SharesMathLib} from "../../lib/morpho-blue/src/libraries/SharesMathLib.sol";
 
-import {ORACLE_PRICE_SCALE} from "@morpho-blue/libraries/ConstantsLib.sol";
+import {ORACLE_PRICE_SCALE} from "../../lib/morpho-blue/src/libraries/ConstantsLib.sol";
 
 /// @title Snippets
 /// @author Morpho Labs
@@ -162,7 +162,7 @@ contract MorphoBlueSnippets {
         external
         returns (uint256 assetsSupplied, uint256 sharesSupplied)
     {
-        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
 
         uint256 shares = 0;
@@ -175,7 +175,7 @@ contract MorphoBlueSnippets {
     /// @param marketParams The parameters of the market.
     /// @param amount The amount of collateral the user is supplying.
     function supplyCollateral(MarketParams memory marketParams, uint256 amount) external {
-        ERC20(marketParams.collateralToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.collateralToken).forceApprove(address(morpho), type(uint256).max);
         ERC20(marketParams.collateralToken).safeTransferFrom(msg.sender, address(this), amount);
 
         address onBehalf = msg.sender;
@@ -300,7 +300,7 @@ contract MorphoBlueSnippets {
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
-        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
 
         uint256 shares = 0;
@@ -316,7 +316,7 @@ contract MorphoBlueSnippets {
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
-        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
 
         Id marketId = marketParams.id();
 
@@ -337,7 +337,7 @@ contract MorphoBlueSnippets {
     /// @return assetsRepaid The actual amount of assets repaid.
     /// @return sharesRepaid The shares repaid in return for the assets.
     function repayAll(MarketParams memory marketParams) external returns (uint256 assetsRepaid, uint256 sharesRepaid) {
-        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
 
         Id marketId = marketParams.id();
 
@@ -362,7 +362,7 @@ contract MorphoBlueSnippets {
         external
         returns (uint256 assetsRepaid, uint256 sharesRepaid)
     {
-        ERC20(marketParams.loanToken).safeApprove(address(morpho), type(uint256).max);
+        ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
 
         Id id = marketParams.id();
 

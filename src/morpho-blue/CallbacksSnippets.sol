@@ -5,14 +5,14 @@ import {
     IMorphoSupplyCollateralCallback,
     IMorphoLiquidateCallback,
     IMorphoRepayCallback
-} from "@morpho-blue/interfaces/IMorphoCallbacks.sol";
+} from "../../lib/morpho-blue/src/interfaces/IMorphoCallbacks.sol";
+import {ISwap} from "./interfaces/ISwap.sol";
 
-import {Id, IMorpho, MarketParams} from "@morpho-blue/interfaces/IMorpho.sol";
-import {SafeTransferLib, ERC20} from "@solmate/utils/SafeTransferLib.sol";
-import {MorphoLib} from "@morpho-blue/libraries/periphery/MorphoLib.sol";
-import {MarketParamsLib} from "@morpho-blue/libraries/MarketParamsLib.sol";
+import {Id, IMorpho, MarketParams} from "../../lib/morpho-blue/src/interfaces/IMorpho.sol";
+import {SafeTransferLib, ERC20} from "../../lib/solmate/src/utils/SafeTransferLib.sol";
+import {MorphoLib} from "../../lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
+import {MarketParamsLib} from "../../lib/morpho-blue/src/libraries/MarketParamsLib.sol";
 
-import {ISwap} from "@snippets/morpho-blue/interfaces/ISwap.sol";
 
 /*
 
@@ -92,7 +92,7 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         swapper.swapLoanToCollat(amountBis);
     }
 
-    function onMorphoLiquidate(uint256 repaidAssets, bytes calldata data) external onlyMorpho {
+    function onMorphoLiquidate(uint256, bytes calldata data) external onlyMorpho {
         LiquidateData memory decoded = abi.decode(data, (LiquidateData));
 
         ERC20(decoded.collateralToken).approve(address(swapper), type(uint256).max);
