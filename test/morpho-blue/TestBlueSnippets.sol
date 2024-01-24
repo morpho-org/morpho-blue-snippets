@@ -122,6 +122,7 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(borrowTrue, borrowToTest, "Diff in snippets vs integration borrowAPY test");
     }
 
+    // Cover the idle market case
     function testBorrowAPYIdleMarket(Market memory market) public {
         MarketParams memory idleMarket;
         idleMarket.loanToken = address(loanToken);
@@ -163,7 +164,7 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
     }
 
-    function testHealthfactor(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
+    function testHealthFactor(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
         public
     {
         uint256 actualHF;
@@ -187,7 +188,8 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(expectedHF, actualHF);
     }
 
-    function testHealthfactor0Borrow(uint256 amountSupplied, uint256 timeElapsed, uint256 fee) public {
+    // Cover the branch of userHealthFactor
+    function testHealthFactor0Borrow(uint256 amountSupplied, uint256 timeElapsed, uint256 fee) public {
         uint256 amountBorrowed = 0;
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
         morpho.accrueInterest(marketParams);
@@ -258,6 +260,7 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(morpho.expectedSupplyAssets(marketParams, SUPPLIER), 0, "supply assets");
     }
 
+    // cover the 2 cases of withdrawAmountOrAll
     function testWithdrawAmountOrAll(uint256 amountSuplied, uint256 amountWithdrawn) public {
         amountSuplied = bound(amountSuplied, 1, MAX_TEST_AMOUNT);
         amountWithdrawn = bound(amountWithdrawn, 1, MAX_TEST_AMOUNT);

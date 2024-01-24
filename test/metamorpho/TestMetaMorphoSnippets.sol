@@ -120,6 +120,7 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         assertEq(Id.unwrap(withdrawQueueList[1]), Id.unwrap(expectedWithdrawQueue[1]));
     }
 
+    // Second assert is handling the if statement
     function testTotalCapAsset(uint256 capMarket1, uint256 capMarket2, uint256 capMarket3) public {
         capMarket1 = bound(capMarket1, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
         capMarket2 = bound(capMarket2, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
@@ -133,6 +134,11 @@ contract TestMetaMorphoSnippets is IntegrationTest {
             capMarket1 + capMarket2 + capMarket3,
             snippets.totalCapCollateral(address(vault), address(collateralToken)),
             "total collateral cap"
+        );
+        assertEq(
+            0,
+            snippets.totalCapCollateral(address(vault), address(loanToken)),
+            "Total loanToken cap should be zero as per the if condition"
         );
     }
 
@@ -258,6 +264,18 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         vm.prank(SUPPLIER);
         uint256 shares = snippets.depositInVault(address(vault), assets, SUPPLIER);
 
+        assertGt(shares, 0, "shares");
+        assertEq(vault.balanceOf(SUPPLIER), shares, "balanceOf(SUPPLIER)");
+    }
+
+    // It covers the branch of _approveMaxVault
+    function testDepositInVault0Approval(uint256 assets) public {
+        assets = bound(assets, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
+        loanToken.setBalance(SUPPLIER, assets);
+        vm.startPrank(SUPPLIER);
+        vault.approve(address(snippets), 0);
+        uint256 shares = snippets.depositInVault(address(vault), assets, SUPPLIER);
+        vm.stopPrank();
         assertGt(shares, 0, "shares");
         assertEq(vault.balanceOf(SUPPLIER), shares, "balanceOf(SUPPLIER)");
     }
