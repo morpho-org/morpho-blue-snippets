@@ -116,7 +116,7 @@ contract TestIntegrationSnippets is BaseTest {
         vm.assume(market.totalBorrowAssets > 0);
         vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
 
-        uint256 borrowTrue = irm.borrowRate(marketParams, market).wTaylorCompounded(1);
+        uint256 borrowTrue = irm.borrowRate(marketParams, market).wTaylorCompounded(365 days);
         uint256 borrowToTest = snippets.borrowAPY(marketParams, market);
 
         assertEq(borrowTrue, borrowToTest, "Diff in snippets vs integration borrowAPY test");

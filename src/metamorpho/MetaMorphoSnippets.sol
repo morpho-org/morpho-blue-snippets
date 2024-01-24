@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IMetaMorpho} from "../../lib/metamorpho/src/interfaces/IMetaMorpho.sol";
+import {IMetaMorpho, MarketAllocation} from "../../lib/metamorpho/src/interfaces/IMetaMorpho.sol";
 import {ConstantsLib} from "../../lib/metamorpho/src/libraries/ConstantsLib.sol";
 
 import {MarketParamsLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MarketParamsLib.sol";
