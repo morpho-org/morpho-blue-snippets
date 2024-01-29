@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {
     IMorphoSupplyCollateralCallback,
-    IMorphoLiquidateCallback,
     IMorphoRepayCallback
 } from "../../lib/morpho-blue/src/interfaces/IMorphoCallbacks.sol";
 import {ISwap} from "./interfaces/ISwap.sol";
@@ -13,25 +12,20 @@ import {SafeTransferLib, ERC20} from "../../lib/solmate/src/utils/SafeTransferLi
 import {MorphoLib} from "../../lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "../../lib/morpho-blue/src/libraries/MarketParamsLib.sol";
 
+// The following swapper contract only has educational purpose. It simulates a contract allowing to swap a token against
+// another, with the exact price returned by an arbitrary oracle.
 
-/*
+// The introduction of the swapper contract is to showcase the functioning of the callbacks on Morpho Blue without
+// highlighting any known DEX.
 
-The following swapper contract only has educational purpose. It simulates a contract allowing to swap a token against
-another, with the exact price returned by an arbitrary oracle.
+// Therefore, swapper must be replaced (by the swap of your choice) in your implementation. The functions
+// `swapCollatToLoan` and `swapLoanToCollat` must as well be adapted to match the ones of the chosen swap contract.
 
-The introduction of the swapper contract is to showcase the functioning of leverage on Morpho Blue (using callbacks)
-without highlighting any known DEX.
+// One should be aware that has to be taken into account on potential swap:
+//    1. slippage,
+//    2. fees.
 
-Therefore, swapper must be replaced (by the swap of your choice) in your implementation. The functions
-`swapCollatToLoan` and `swapLoanToCollat` must as well be adapted to match the ones of the chosen swap contract.
-    
-One should be aware that has to be taken into account on potential swap:
-    1. slippage
-    2. fees
-
-*/
-
-contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallback, IMorphoLiquidateCallback {
+contract LeverageDeleverageSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallback {
     using MorphoLib for IMorpho;
     using MarketParamsLib for MarketParams;
     using SafeTransferLib for ERC20;
@@ -49,36 +43,18 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         _;
     }
 
-    // Type of liquidation callback data
-    struct LiquidateData {
-        address collateralToken;
-    }
-
-    // Type of collateral supply callback data
+    // Type of collateral supply callback data.
     struct SupplyCollateralData {
         uint256 loanAmount;
         MarketParams marketParams;
         address user;
     }
 
-    // Type of repay callback data
+    // Type of repay callback data.
     struct RepayData {
         MarketParams marketParams;
         address user;
     }
-
-    /* 
-    
-    Callbacks
-
-    Reminder: for a given market, one can leverage his position up to a maxLeverageFactor = 1/1-LLTV,
-    
-    Example : with a LLTV of 80% -> 5 is the max leverage factor
-    
-    Warning : it is strongly recommended to not use the the max leverage factor, as the position could get liquidated
-    at next block because of interets.  
-    
-    */
 
     function onMorphoSupplyCollateral(uint256 amount, bytes calldata data) external onlyMorpho {
         SupplyCollateralData memory decoded = abi.decode(data, (SupplyCollateralData));
@@ -87,17 +63,8 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         ERC20(decoded.marketParams.loanToken).approve(address(swapper), amount);
 
         // Logic to Implement. Following example is a swap, could be a 'unwrap + stake + wrap staked' for
-        // wETH(wstETH) Market
-        // _approveMaxTo(marketParams.);
+        // wETH(wstETH) Market.
         swapper.swapLoanToCollat(amountBis);
-    }
-
-    function onMorphoLiquidate(uint256, bytes calldata data) external onlyMorpho {
-        LiquidateData memory decoded = abi.decode(data, (LiquidateData));
-
-        ERC20(decoded.collateralToken).approve(address(swapper), type(uint256).max);
-
-        swapper.swapCollatToLoan(ERC20(decoded.collateralToken).balanceOf(address(this)));
     }
 
     function onMorphoRepay(uint256 amount, bytes calldata data) external onlyMorpho {
@@ -165,38 +132,6 @@ contract CallbacksSnippets is IMorphoSupplyCollateralCallback, IMorphoRepayCallb
         ERC20(marketParams.collateralToken).safeTransfer(
             msg.sender, ERC20(marketParams.collateralToken).balanceOf(address(this))
         );
-    }
-
-    /// @notice Fully liquidates the borrow position of `borrower` on the given `marketParams` market of Morpho Blue and
-    /// sends the profit of the liquidation to the sender.
-    /// @dev Thanks to callbacks, the sender doesn't need to hold any tokens to perform this operation.
-    /// @param marketParams The market to perform the liquidation on.
-    /// @param borrower The owner of the liquidable borrow position.
-    /// @param seizeFullCollat Pass `True` to seize all the collateral of `borrower`. Pass `False` to repay all of the
-    /// `borrower`'s debt.
-    function fullLiquidationWithoutCollat(MarketParams calldata marketParams, address borrower, bool seizeFullCollat)
-        public
-        returns (uint256 seizedAssets, uint256 repaidAssets)
-    {
-        Id id = marketParams.id();
-
-        uint256 seizedCollateral;
-        uint256 repaidShares;
-
-        if (seizeFullCollat) seizedCollateral = morpho.collateral(id, borrower);
-        else repaidShares = morpho.borrowShares(id, borrower);
-
-        _approveMaxTo(marketParams.loanToken, address(morpho));
-
-        (seizedAssets, repaidAssets) = morpho.liquidate(
-            marketParams,
-            borrower,
-            seizedCollateral,
-            repaidShares,
-            abi.encode(LiquidateData(marketParams.collateralToken))
-        );
-
-        ERC20(marketParams.loanToken).safeTransfer(msg.sender, ERC20(marketParams.loanToken).balanceOf(address(this)));
     }
 
     function _approveMaxTo(address asset, address spender) internal {
