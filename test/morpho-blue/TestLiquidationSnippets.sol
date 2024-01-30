@@ -64,7 +64,7 @@ contract LiquidationSnippetsTest is BaseTest {
         vm.prank(LIQUIDATOR);
         snippets.fullLiquidationWithoutCollat(marketParams, BORROWER, true);
 
-        assertEq(morpho.collateral(marketParams.id(), BORROWER), 0, "not fully liquididated");
+        assertEq(morpho.collateral(marketParams.id(), BORROWER), 0, "not fully liquidated");
         assertGt(ERC20(marketParams.loanToken).balanceOf(LIQUIDATOR), 0, "Liquidator didn't receive profit");
     }
 
@@ -93,4 +93,51 @@ contract LiquidationSnippetsTest is BaseTest {
         assertEq(morpho.borrowShares(marketParams.id(), BORROWER), 0, "not fully liquididated");
         assertGt(ERC20(marketParams.loanToken).balanceOf(LIQUIDATOR), 0, "Liquidator didn't receive profit");
     }
+
+    function testLiquidationImpossible(uint256 borrowAmount) public {
+        borrowAmount = bound(borrowAmount, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
+
+        uint256 collateralAmount = borrowAmount.wDivUp(marketParams.lltv);
+
+        oracle.setPrice(ORACLE_PRICE_SCALE);
+        loanToken.setBalance(SUPPLIER, borrowAmount);
+        collateralToken.setBalance(BORROWER, collateralAmount);
+
+        vm.prank(SUPPLIER);
+        morpho.supply(marketParams, borrowAmount, 0, SUPPLIER, hex"");
+
+        vm.startPrank(BORROWER);
+        morpho.supplyCollateral(marketParams, collateralAmount, BORROWER, hex"");
+        morpho.borrow(marketParams, borrowAmount, 0, BORROWER, BORROWER);
+        vm.stopPrank();
+
+        vm.prank(LIQUIDATOR);
+        vm.expectRevert(bytes(ErrorsLib.HEALTHY_POSITION));
+        snippets.fullLiquidationWithoutCollat(marketParams, BORROWER, false);
+    }
+
+    // function testLiquidateNotCreatedMarket(MarketParams memory marketParamsFuzz, uint256 lltv) public {
+    //     uint256 borrowAmount = bound(1 ether, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
+
+    //     uint256 collateralAmount = borrowAmount.wDivUp(marketParams.lltv);
+
+    //     oracle.setPrice(ORACLE_PRICE_SCALE);
+    //     loanToken.setBalance(SUPPLIER, borrowAmount);
+    //     collateralToken.setBalance(BORROWER, collateralAmount);
+
+    //     vm.prank(SUPPLIER);
+    //     morpho.supply(marketParams, borrowAmount, 0, SUPPLIER, hex"");
+
+    //     vm.startPrank(BORROWER);
+    //     morpho.supplyCollateral(marketParams, collateralAmount, BORROWER, hex"");
+    //     morpho.borrow(marketParams, borrowAmount, 0, BORROWER, BORROWER);
+    //     vm.stopPrank();
+
+    //     _setLltv(_boundTestLltv(lltv));
+    //     vm.assume(neq(marketParamsFuzz, marketParams));
+
+    //     vm.prank(LIQUIDATOR);
+    //     vm.expectRevert(bytes(ErrorsLib.MARKET_NOT_CREATED));
+    //     snippets.fullLiquidationWithoutCollat(marketParamsFuzz, BORROWER, false);
+    // }
 }

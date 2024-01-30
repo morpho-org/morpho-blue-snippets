@@ -44,9 +44,6 @@ contract MorphoBlueSnippets {
 
     /*  VIEW FUNCTIONS */
 
-    // INFORMATIONAL: No 'Total Supply' and no 'Total Borrow' functions to calculate on chain as there could be some
-    // weird oracles / markets created
-
     /// @notice Calculates the supply APY (Annual Percentage Yield) for a given market.
     /// @param marketParams The parameters of the market.
     /// @param market The market for which the supply APY is being calculated.
@@ -59,12 +56,11 @@ contract MorphoBlueSnippets {
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
         // Get the borrow rate
-        uint256 borrowRate = borrowAPY(marketParams, market);
-
-        // Get the supply rate
-        uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
-
-        supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
+        if (marketParams.irm != address(0)) {
+            uint256 borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market);
+            uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
+            supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization).wTaylorCompounded(365 days);
+        }
     }
 
     /// @notice Calculates the borrow APY (Annual Percentage Yield) for a given market.
