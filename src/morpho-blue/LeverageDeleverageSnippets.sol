@@ -115,11 +115,11 @@ contract LeverageDeleverageSnippets is IMorphoSupplyCollateralCallback, IMorphoR
         );
     }
 
-    /// @notice Create a deleverages the sender on the given `marketParams` market of Morpho Blue by repaying his debt
-    /// and withdrawing his collateral. The withdrawn assets are sent to the sender.
+    /// @notice Deleverages the sender on the given `marketParams` market of Morpho Blue by repaying his debt and
+    /// withdrawing his collateral. The withdrawn assets are sent to the sender.
     /// @dev If the sender has a leveraged position on `marketParams`, he doesn't need any tokens to perform this
     /// operation.
-    /// @param marketParams The market to perform the leverage on.
+    /// @param marketParams The market of the leverage position.
     function deLeverageMe(MarketParams calldata marketParams) public returns (uint256 amountRepaid) {
         uint256 totalShares = morpho.borrowShares(marketParams.id(), msg.sender);
 

@@ -18,10 +18,10 @@ import {SharesMathLib} from "../../lib/morpho-blue/src/libraries/SharesMathLib.s
 
 import {ORACLE_PRICE_SCALE} from "../../lib/morpho-blue/src/libraries/ConstantsLib.sol";
 
-/// @title Snippets
+/// @title Morpho Blue Snippets
 /// @author Morpho Labs
 /// @custom:contact security@morpho.org
-/// @notice The Morpho Snippets contract.
+/// @notice The Morpho Blue Snippets contract.
 contract MorphoBlueSnippets {
     using MathLib for uint256;
     using MorphoLib for IMorpho;
@@ -64,7 +64,7 @@ contract MorphoBlueSnippets {
 
     /// @notice Calculates the borrow APY (Annual Percentage Yield) for a given market.
     /// @param marketParams The parameters of the market.
-    /// @param market The market for which the borrow APY is being calculated.
+    /// @param market The state of the market.
     /// @return borrowApy The calculated borrow APY (scaled by WAD).
     function borrowAPY(MarketParams memory marketParams, Market memory market)
         public
