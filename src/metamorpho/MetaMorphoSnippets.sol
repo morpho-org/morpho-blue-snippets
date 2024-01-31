@@ -66,8 +66,6 @@ contract MetaMorphoSnippets {
         for (uint256 i; i < queueLength; ++i) {
             supplyQueueList[i] = IMetaMorpho(vault).supplyQueue(i);
         }
-
-        return supplyQueueList;
     }
 
     /// @notice Returns the withdraw queue a MetaMorpho `vault`.
@@ -79,8 +77,6 @@ contract MetaMorphoSnippets {
         for (uint256 i; i < queueLength; ++i) {
             withdrawQueueList[i] = IMetaMorpho(vault).withdrawQueue(i);
         }
-
-        return withdrawQueueList;
     }
 
     /// @notice Returns the sum of the supply caps of markets with the same collateral `token` on a MetaMorpho `vault`.

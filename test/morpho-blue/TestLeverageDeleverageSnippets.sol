@@ -58,18 +58,18 @@ contract LeverageDeleverageTest is BaseTest {
         assertEq(morpho.expectedBorrowAssets(marketParams, BORROWER_), loanAmount, "no collateral");
     }
 
-    function testOnlyMorphoEnforcement() public {
-        // Arrange: Deploy a malicious contract or use an EOA address different from Morpho's
+    function testOnlyMorphoEnforcementSupplyCollateral() public {
         address maliciousUser = makeAddr("maliciousUser");
+        vm.prank(maliciousUser);
+        vm.expectRevert(bytes("msg.sender should be Morpho Blue"));
+        snippets.onMorphoSupplyCollateral(0, abi.encodeWithSelector(snippets.onMorphoSupplyCollateral.selector, 0, ""));
+    }
 
-        // Act: Try calling a function protected by the onlyMorpho modifier
-        vm.startPrank(maliciousUser);
-        (bool success,) =
-            address(snippets).call(abi.encodeWithSelector(snippets.onMorphoSupplyCollateral.selector, 0, ""));
-        vm.stopPrank();
-
-        // Assert: The call should fail if the onlyMorpho modifier is correctly implemented
-        assertEq(success, false, "Function should not be callable by addresses other than Morpho");
+    function testOnlyMorphoEnforcementRepay() public {
+        address maliciousUser = makeAddr("maliciousUser");
+        vm.prank(maliciousUser);
+        vm.expectRevert(bytes("msg.sender should be Morpho Blue"));
+        snippets.onMorphoRepay(0, abi.encodeWithSelector(snippets.onMorphoRepay.selector, 0, ""));
     }
 
     function testDeLeverageMe(uint256 initAmountCollateral, uint256 leverageFactor) public {

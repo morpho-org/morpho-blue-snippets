@@ -21,6 +21,9 @@ contract TestIntegrationSnippets is BaseTest {
 
     uint256 testNumber;
 
+    MarketParams internal idleMarketParams;
+    Id internal idleMarketId;
+
     MorphoBlueSnippets internal snippets;
 
     function setUp() public virtual override {
@@ -52,7 +55,7 @@ contract TestIntegrationSnippets is BaseTest {
         uint256 expectedSupplyAssets =
             morpho.supplyShares(id, SUPPLIER).toAssetsDown(morpho.totalSupplyAssets(id), morpho.totalSupplyShares(id));
 
-        assertEq(expectedSupplyAssets, actualSupplyAssets);
+        assertEq(actualSupplyAssets, expectedSupplyAssets);
     }
 
     function testBorrowAssetsUser(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
@@ -66,7 +69,7 @@ contract TestIntegrationSnippets is BaseTest {
 
         uint256 actualBorrowAssets = snippets.borrowAssetsUser(marketParams, BORROWER);
 
-        assertEq(expectedBorrowAssets, actualBorrowAssets);
+        assertEq(actualBorrowAssets, expectedBorrowAssets);
     }
 
     function testCollateralAssetsUser(uint256 amountSupplied, uint256 amountBorrowed, uint256 timestamp, uint256 fee)
@@ -79,8 +82,8 @@ contract TestIntegrationSnippets is BaseTest {
 
         _testMorphoLibCommon(amountSupplied, amountBorrowed, timestamp, fee);
 
-        uint256 expectedCollateral = snippets.collateralAssetsUser(id, BORROWER);
-        assertEq(morpho.collateral(id, BORROWER), expectedCollateral);
+        uint256 actualCollateral = snippets.collateralAssetsUser(id, BORROWER);
+        assertEq(morpho.collateral(id, BORROWER), actualCollateral);
     }
 
     function testMarketTotalSupply(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
@@ -88,11 +91,11 @@ contract TestIntegrationSnippets is BaseTest {
     {
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
 
-        uint256 expectedTotalSupply = snippets.marketTotalSupply(marketParams);
+        uint256 actualTotalSupply = snippets.marketTotalSupply(marketParams);
 
         morpho.accrueInterest(marketParams);
 
-        assertEq(expectedTotalSupply, morpho.totalSupplyAssets(id));
+        assertEq(actualTotalSupply, morpho.totalSupplyAssets(id));
     }
 
     function testMarketTotalBorrow(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
@@ -100,11 +103,11 @@ contract TestIntegrationSnippets is BaseTest {
     {
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
 
-        uint256 expectedTotalBorrow = snippets.marketTotalBorrow(marketParams);
+        uint256 actualTotalBorrow = snippets.marketTotalBorrow(marketParams);
 
         morpho.accrueInterest(marketParams);
 
-        assertEq(expectedTotalBorrow, morpho.totalBorrowAssets(id));
+        assertEq(actualTotalBorrow, morpho.totalBorrowAssets(id));
     }
 
     function testBorrowAPY(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee) public {
@@ -114,39 +117,50 @@ contract TestIntegrationSnippets is BaseTest {
         morpho.accrueInterest(marketParams);
 
         Market memory market = morpho.market(id);
-        uint256 expectedBorrowApy = irm.borrowRate(marketParams, market).wTaylorCompounded(365 days);
+        uint256 expectedBorrowApy = irm.borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         uint256 borrowApy = snippets.borrowAPY(marketParams, market);
 
-        assertEq(expectedBorrowApy, borrowApy, "Diff in snippets vs integration borrowAPY test");
+        assertEq(borrowApy, expectedBorrowApy, "Diff in snippets vs integration borrowAPY test");
 
         if (expectedBorrowApy > 0) {
-            assertGt(borrowApy, 0, "The borrowAPY should be greater than zero but was found to be zero.");
+            assertGt(borrowApy, 0, "The borrowApy should be greater than zero but was found to be zero.");
         }
     }
 
     // Cover the idle market case - borrow
     function testBorrowAPYIdleMarket(Market memory market) public {
-        MarketParams memory idleMarket;
-        idleMarket.loanToken = address(loanToken);
+        uint256 borrowApy = snippets.borrowAPY(idleMarketParams, market);
 
-        uint256 borrowApy = snippets.borrowAPY(idleMarket, market);
-
-        assertEq(borrowApy, 0, "borrow rate");
+        assertEq(borrowApy, 0, "borrow Apy");
     }
 
     // Cover the idle market case - supply
-    function testSupplyAPYIdleMarket(Market memory market) public {
-        MarketParams memory idleMarket;
-        idleMarket.loanToken = address(loanToken);
+    function testSupplyAPYIdleMarket(uint256 amountSupplied, uint256 blocks, uint256 fee) public {
+        _createIdleMarket();
 
-        uint256 supplyApy = snippets.supplyAPY(idleMarket, market);
+        amountSupplied = bound(amountSupplied, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
+        blocks = _boundBlocks(blocks);
+        fee = bound(fee, 0, MAX_FEE);
 
-        assertEq(supplyApy, 0, "supply rate");
+        // Set fee parameters.
+        vm.startPrank(OWNER);
+        if (fee != morpho.fee(id)) morpho.setFee(idleMarketParams, fee);
+        vm.stopPrank();
+
+        if (amountSupplied > 0) {
+            loanToken.setBalance(SUPPLIER, amountSupplied);
+            vm.prank(SUPPLIER);
+            morpho.supply(idleMarketParams, amountSupplied, 0, SUPPLIER, hex"");
+
+            idleMarketParams.loanToken = address(loanToken);
+
+            uint256 supplyApy = snippets.supplyAPY(idleMarketParams, morpho.market(idleMarketId));
+
+            assertEq(supplyApy, 0, "supply Apy");
+        }
     }
 
     function testSupplyAPY(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee) public {
-        fee = bound(fee, 1, MAX_FEE);
-
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
         morpho.accrueInterest(marketParams);
 
@@ -154,29 +168,28 @@ contract TestIntegrationSnippets is BaseTest {
 
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
-        uint256 borrowTrue = irm.borrowRateView(marketParams, market);
+        uint256 borrowTrue = irm.borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        uint256 expectedSupplyApy =
-            borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization).wTaylorCompounded(365 days);
+        uint256 expectedSupplyApy = borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
 
         uint256 supplyApy = snippets.supplyAPY(marketParams, market);
 
-        assertEq(expectedSupplyApy, supplyApy, "Diff in snippets vs integration supplyAPY test");
+        assertEq(supplyApy, expectedSupplyApy, "Diff in snippets vs integration supplyAPY test");
         if (expectedSupplyApy > 0) {
-            assertGt(supplyApy, 0, "The supplyAPY should be greater than zero but was found to be zero.");
+            assertGt(supplyApy, 0, "The supplyApy should be greater than zero but was found to be zero.");
         }
     }
 
     function testHealthFactor(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
         public
     {
-        uint256 actualHF;
+        uint256 expectedHF;
 
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
         morpho.accrueInterest(marketParams);
 
-        uint256 expectedHF = snippets.userHealthFactor(marketParams, id, BORROWER);
+        uint256 actualHF = snippets.userHealthFactor(marketParams, id, BORROWER);
 
         uint256 collateralPrice = IOracle(marketParams.oracle).price();
         uint256 maxBorrow =
@@ -185,22 +198,23 @@ contract TestIntegrationSnippets is BaseTest {
         uint256 borrowed = morpho.expectedBorrowAssets(marketParams, BORROWER);
 
         if (borrowed == 0) {
-            actualHF = type(uint256).max;
+            expectedHF = type(uint256).max;
         } else {
-            actualHF = maxBorrow.wDivDown(borrowed);
+            expectedHF = maxBorrow.wDivDown(borrowed);
         }
-        assertEq(expectedHF, actualHF);
+        assertEq(actualHF, expectedHF);
     }
 
     // Cover the branch of userHealthFactor
-    function testHealthFactor0Borrow(uint256 amountSupplied, uint256 timeElapsed, uint256 fee) public {
-        uint256 amountBorrowed = 0;
+    function testHealthFactor0Borrow(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
+        public
+    {
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
         morpho.accrueInterest(marketParams);
 
-        uint256 expectedHF = snippets.userHealthFactor(marketParams, id, BORROWER);
+        uint256 actualHF = snippets.userHealthFactor(marketParams, id, SUPPLIER);
 
-        assertEq(expectedHF, type(uint256).max);
+        assertEq(actualHF, type(uint256).max);
     }
 
     // ---- Test Managing Functions ----
@@ -236,7 +250,7 @@ contract TestIntegrationSnippets is BaseTest {
         vm.stopPrank();
 
         assertEq(assetsWithdrawn, amountWithdrawn, "returned asset amount");
-        assertEq(morpho.expectedSupplyAssets(marketParams, SUPPLIER), amountSupplied - amountWithdrawn, "supply assets");
+        assertEq(amountSupplied - amountWithdrawn, morpho.expectedSupplyAssets(marketParams, SUPPLIER), "supply assets");
     }
 
     function testWithdraw50Percent(uint256 amount) public {
@@ -431,8 +445,8 @@ contract TestIntegrationSnippets is BaseTest {
     function _generatePendingInterest(uint256 amountSupplied, uint256 amountBorrowed, uint256 blocks, uint256 fee)
         internal
     {
-        amountSupplied = bound(amountSupplied, 0, MAX_TEST_AMOUNT);
-        amountBorrowed = bound(amountBorrowed, 0, amountSupplied);
+        amountSupplied = bound(amountSupplied, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
+        amountBorrowed = bound(amountBorrowed, MIN_TEST_AMOUNT, amountSupplied);
         blocks = _boundBlocks(blocks);
         fee = bound(fee, 0, MAX_FEE);
 
@@ -497,5 +511,17 @@ contract TestIntegrationSnippets is BaseTest {
         );
         morpho.borrow(marketParams, amountBorrowed, 0, BORROWER, BORROWER);
         vm.stopPrank();
+    }
+
+    function _createIdleMarket() internal {
+        idleMarketParams = MarketParams(address(loanToken), address(0), address(0), address(0), 0);
+        idleMarketId = idleMarketParams.id();
+
+        vm.startPrank(OWNER);
+        if (!morpho.isLltvEnabled(0)) morpho.enableLltv(0);
+        if (morpho.lastUpdate(idleMarketParams.id()) == 0) morpho.createMarket(idleMarketParams);
+        vm.stopPrank();
+
+        _forward(1);
     }
 }

@@ -47,33 +47,32 @@ contract MorphoBlueSnippets {
     /// @notice Calculates the supply APY (Annual Percentage Yield) for a given market.
     /// @param marketParams The parameters of the market.
     /// @param market The market for which the supply APY is being calculated.
-    /// @return supplyRate The calculated supply APY (scaled by WAD).
+    /// @return supplyApy The calculated supply APY (scaled by WAD).
     function supplyAPY(MarketParams memory marketParams, Market memory market)
         public
         view
-        returns (uint256 supplyRate)
+        returns (uint256 supplyApy)
     {
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
         // Get the borrow rate
         if (marketParams.irm != address(0)) {
-            uint256 borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market);
             uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
-            supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization).wTaylorCompounded(365 days);
+            supplyApy = borrowAPY(marketParams, market).wMulDown(1 ether - market.fee).wMulDown(utilization);
         }
     }
 
     /// @notice Calculates the borrow APY (Annual Percentage Yield) for a given market.
     /// @param marketParams The parameters of the market.
     /// @param market The market for which the borrow APY is being calculated.
-    /// @return borrowRate The calculated borrow APY (scaled by WAD).
+    /// @return borrowApy The calculated borrow APY (scaled by WAD).
     function borrowAPY(MarketParams memory marketParams, Market memory market)
         public
         view
-        returns (uint256 borrowRate)
+        returns (uint256 borrowApy)
     {
         if (marketParams.irm != address(0)) {
-            borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(365 days);
+            borrowApy = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         }
     }
 

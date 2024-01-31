@@ -43,16 +43,10 @@ contract LiquidationSnippetsTest is BaseTest {
     }
 
     function testOnlyMorphoEnforcement() public {
-        // Arrange: Deploy a malicious contract or use an EOA address different from Morpho's
         address maliciousUser = makeAddr("maliciousUser");
-
-        // Act: Try calling a function protected by the onlyMorpho modifier
-        vm.startPrank(maliciousUser);
-        (bool success,) = address(snippets).call(abi.encodeWithSelector(snippets.onMorphoLiquidate.selector, 0, ""));
-        vm.stopPrank();
-
-        // Assert: The call should fail if the onlyMorpho modifier is correctly implemented
-        assertEq(success, false, "Function should not be callable by addresses other than Morpho");
+        vm.prank(maliciousUser);
+        vm.expectRevert(bytes("msg.sender should be Morpho Blue"));
+        snippets.onMorphoLiquidate(0, abi.encodeWithSelector(snippets.onMorphoLiquidate.selector, 0, ""));
     }
 
     function testLiquidateSeizeAllCollateral(uint256 borrowAmount) public {
