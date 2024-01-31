@@ -161,7 +161,7 @@ contract MorphoBlueSnippets {
         ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
 
-        uint256 shares = 0;
+        uint256 shares;
         address onBehalf = msg.sender;
 
         (assetsSupplied, sharesSupplied) = morpho.supply(marketParams, amount, shares, onBehalf, hex"");
@@ -198,7 +198,7 @@ contract MorphoBlueSnippets {
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
-        uint256 shares = 0;
+        uint256 shares;
         address onBehalf = msg.sender;
         address receiver = msg.sender;
 
@@ -215,7 +215,7 @@ contract MorphoBlueSnippets {
     {
         Id marketId = marketParams.id();
         uint256 supplyShares = morpho.position(marketId, msg.sender).supplyShares;
-        uint256 amount = 0;
+        uint256 amount;
         uint256 shares = supplyShares / 2;
 
         address onBehalf = msg.sender;
@@ -234,7 +234,7 @@ contract MorphoBlueSnippets {
     {
         Id marketId = marketParams.id();
         uint256 supplyShares = morpho.position(marketId, msg.sender).supplyShares;
-        uint256 amount = 0;
+        uint256 amount;
 
         address onBehalf = msg.sender;
         address receiver = msg.sender;
@@ -280,7 +280,7 @@ contract MorphoBlueSnippets {
         external
         returns (uint256 assetsBorrowed, uint256 sharesBorrowed)
     {
-        uint256 shares = 0;
+        uint256 shares;
         address onBehalf = msg.sender;
         address receiver = msg.sender;
 
@@ -299,7 +299,7 @@ contract MorphoBlueSnippets {
         ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
 
-        uint256 shares = 0;
+        uint256 shares;
         address onBehalf = msg.sender;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, shares, onBehalf, hex"");
     }
@@ -322,7 +322,7 @@ contract MorphoBlueSnippets {
         uint256 repaidAmount = (borrowShares / 2).toAssetsUp(totalBorrowAssets, totalBorrowShares);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
 
-        uint256 amount = 0;
+        uint256 amount;
         address onBehalf = msg.sender;
 
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares / 2, onBehalf, hex"");
@@ -343,7 +343,7 @@ contract MorphoBlueSnippets {
         uint256 repaidAmount = borrowShares.toAssetsUp(totalBorrowAssets, totalBorrowShares);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
 
-        uint256 amount = 0;
+        uint256 amount;
         address onBehalf = msg.sender;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares, onBehalf, hex"");
     }

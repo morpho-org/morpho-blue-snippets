@@ -42,6 +42,19 @@ contract LiquidationSnippetsTest is BaseTest {
         uint256 lltv;
     }
 
+    function testOnlyMorphoEnforcement() public {
+        // Arrange: Deploy a malicious contract or use an EOA address different from Morpho's
+        address maliciousUser = makeAddr("maliciousUser");
+
+        // Act: Try calling a function protected by the onlyMorpho modifier
+        vm.startPrank(maliciousUser);
+        (bool success,) = address(snippets).call(abi.encodeWithSelector(snippets.onMorphoLiquidate.selector, 0, ""));
+        vm.stopPrank();
+
+        // Assert: The call should fail if the onlyMorpho modifier is correctly implemented
+        assertEq(success, false, "Function should not be callable by addresses other than Morpho");
+    }
+
     function testLiquidateSeizeAllCollateral(uint256 borrowAmount) public {
         borrowAmount = bound(borrowAmount, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
 
@@ -115,29 +128,4 @@ contract LiquidationSnippetsTest is BaseTest {
         vm.expectRevert(bytes(ErrorsLib.HEALTHY_POSITION));
         snippets.fullLiquidationWithoutCollat(marketParams, BORROWER, false);
     }
-
-    // function testLiquidateNotCreatedMarket(MarketParams memory marketParamsFuzz, uint256 lltv) public {
-    //     uint256 borrowAmount = bound(1 ether, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
-
-    //     uint256 collateralAmount = borrowAmount.wDivUp(marketParams.lltv);
-
-    //     oracle.setPrice(ORACLE_PRICE_SCALE);
-    //     loanToken.setBalance(SUPPLIER, borrowAmount);
-    //     collateralToken.setBalance(BORROWER, collateralAmount);
-
-    //     vm.prank(SUPPLIER);
-    //     morpho.supply(marketParams, borrowAmount, 0, SUPPLIER, hex"");
-
-    //     vm.startPrank(BORROWER);
-    //     morpho.supplyCollateral(marketParams, collateralAmount, BORROWER, hex"");
-    //     morpho.borrow(marketParams, borrowAmount, 0, BORROWER, BORROWER);
-    //     vm.stopPrank();
-
-    //     _setLltv(_boundTestLltv(lltv));
-    //     vm.assume(neq(marketParamsFuzz, marketParams));
-
-    //     vm.prank(LIQUIDATOR);
-    //     vm.expectRevert(bytes(ErrorsLib.MARKET_NOT_CREATED));
-    //     snippets.fullLiquidationWithoutCollat(marketParamsFuzz, BORROWER, false);
-    // }
 }

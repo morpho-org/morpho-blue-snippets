@@ -73,7 +73,7 @@ contract MetaMorphoSnippets {
     /// @notice Returns the withdraw queue a MetaMorpho `vault`.
     /// @param vault The address of the MetaMorpho vault.
     function withdrawQueueVault(address vault) public view returns (Id[] memory withdrawQueueList) {
-        uint256 queueLength = IMetaMorpho(vault).supplyQueueLength();
+        uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
         withdrawQueueList = new Id[](queueLength);
 
         for (uint256 i; i < queueLength; ++i) {

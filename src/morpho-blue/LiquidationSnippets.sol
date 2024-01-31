@@ -9,18 +9,19 @@ import {SafeTransferLib, ERC20} from "../../lib/solmate/src/utils/SafeTransferLi
 import {MorphoLib} from "../../lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "../../lib/morpho-blue/src/libraries/MarketParamsLib.sol";
 
-// The following swapper contract only has educational purpose. It simulates a contract allowing to swap a token against
-// another, with the exact price returned by an arbitrary oracle.
+// This Swapper contract is for educational purposes only. It demonstrates a token swap mechanism, leveraging
+// an arbitrary oracle to determine the exchange rates.
 
-// The introduction of the swapper contract is to showcase the functioning of the callbacks on Morpho Blue without
-// highlighting any known DEX.
+// The primary purpose of introducing this Swapper contract is to illustrate how callbacks function within
+// Morpho Blue, without specifically endorsing any existing DEX.
 
-// Therefore, swapper must be replaced (by the swap of your choice) in your implementation. The functions
-// `swapCollatToLoan` must as well be adapted to match the ones of the chosen swap contract.
+// It's important to replace the 'Swapper' with your preferred swap service in your actual implementation. Accordingly,
+// the method `swapCollatToLoan` should also be modified to align with the swap interface of
+// your choice.
 
-// One should be aware that has to be taken into account on potential swap:
-//    1. slippage,
-//    2. fees.
+// When implementing a swap, consider the following:
+//    1. Slippage,
+//    2. Transaction fees.
 
 contract LiquidationSnippets is IMorphoLiquidateCallback {
     using MorphoLib for IMorpho;

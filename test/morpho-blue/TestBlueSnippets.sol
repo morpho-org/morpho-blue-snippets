@@ -218,11 +218,11 @@ contract TestIntegrationSnippets is BaseTest {
     function testSupplyCollateral(uint256 amount) public {
         amount = bound(amount, MIN_TEST_AMOUNT, MAX_COLLATERAL_ASSETS);
 
-        collateralToken.setBalance(SUPPLIER, amount);
-        vm.prank(SUPPLIER);
+        collateralToken.setBalance(BORROWER, amount);
+        vm.prank(BORROWER);
         snippets.supplyCollateral(marketParams, amount);
 
-        assertEq(morpho.collateral(id, SUPPLIER), amount, "collateral");
+        assertEq(morpho.collateral(id, BORROWER), amount, "collateral");
     }
 
     function testWithdrawAmount(uint256 amountSupplied, uint256 amountWithdrawn) public {
@@ -290,13 +290,13 @@ contract TestIntegrationSnippets is BaseTest {
         amountSupplied = bound(amountSupplied, MIN_TEST_AMOUNT, MAX_COLLATERAL_ASSETS);
         amountWithdrawn = bound(amountWithdrawn, MIN_TEST_AMOUNT, amountSupplied);
 
-        collateralToken.setBalance(SUPPLIER, amountSupplied);
-        vm.startPrank(SUPPLIER);
+        collateralToken.setBalance(BORROWER, amountSupplied);
+        vm.startPrank(BORROWER);
         snippets.supplyCollateral(marketParams, amountSupplied);
         snippets.withdrawCollateral(marketParams, amountWithdrawn);
         vm.stopPrank();
 
-        assertEq(morpho.collateral(id, SUPPLIER), amountSupplied - amountWithdrawn, "collateral");
+        assertEq(morpho.collateral(id, BORROWER), amountSupplied - amountWithdrawn, "collateral");
     }
 
     function testBorrowAssets(
