@@ -108,19 +108,19 @@ contract TestIntegrationSnippets is BaseTest {
     }
 
     function testBorrowAPY(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee) public {
-        vm.assume(fee < 1 ether);
+        fee = bound(fee, 1, MAX_FEE);
 
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
         morpho.accrueInterest(marketParams);
 
         Market memory market = morpho.market(id);
-        uint256 borrowApyTrue = irm.borrowRate(marketParams, market).wTaylorCompounded(365 days);
-        uint256 borrowApyTest = snippets.borrowAPY(marketParams, market);
+        uint256 expectedBorrowApy = irm.borrowRate(marketParams, market).wTaylorCompounded(365 days);
+        uint256 borrowApy = snippets.borrowAPY(marketParams, market);
 
-        assertEq(borrowApyTrue, borrowApyTest, "Diff in snippets vs integration borrowAPY test");
+        assertEq(expectedBorrowApy, borrowApy, "Diff in snippets vs integration borrowAPY test");
 
-        if (borrowApyTrue > 0) {
-            assertGt(borrowApyTest, 0, "The borrowAPY should be greater than zero but was found to be zero.");
+        if (expectedBorrowApy > 0) {
+            assertGt(borrowApy, 0, "The borrowAPY should be greater than zero but was found to be zero.");
         }
     }
 
@@ -129,9 +129,9 @@ contract TestIntegrationSnippets is BaseTest {
         MarketParams memory idleMarket;
         idleMarket.loanToken = address(loanToken);
 
-        uint256 borrowApyTest = snippets.borrowAPY(idleMarket, market);
+        uint256 borrowApy = snippets.borrowAPY(idleMarket, market);
 
-        assertEq(borrowApyTest, 0, "borrow rate");
+        assertEq(borrowApy, 0, "borrow rate");
     }
 
     // Cover the idle market case - supply
@@ -139,13 +139,13 @@ contract TestIntegrationSnippets is BaseTest {
         MarketParams memory idleMarket;
         idleMarket.loanToken = address(loanToken);
 
-        uint256 supplyApyTest = snippets.supplyAPY(idleMarket, market);
+        uint256 supplyApy = snippets.supplyAPY(idleMarket, market);
 
-        assertEq(supplyApyTest, 0, "supply rate");
+        assertEq(supplyApy, 0, "supply rate");
     }
 
     function testSupplyAPY(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee) public {
-        vm.assume(fee < 1 ether);
+        fee = bound(fee, 1, MAX_FEE);
 
         _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
         morpho.accrueInterest(marketParams);
@@ -157,14 +157,14 @@ contract TestIntegrationSnippets is BaseTest {
         uint256 borrowTrue = irm.borrowRateView(marketParams, market);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        uint256 supplyApyTrue =
+        uint256 expectedSupplyApy =
             borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization).wTaylorCompounded(365 days);
 
-        uint256 supplyApyTest = snippets.supplyAPY(marketParams, market);
+        uint256 supplyApy = snippets.supplyAPY(marketParams, market);
 
-        assertEq(supplyApyTrue, supplyApyTest, "Diff in snippets vs integration supplyAPY test");
-        if (supplyApyTrue > 0) {
-            assertGt(supplyApyTest, 0, "The supplyAPY should be greater than zero but was found to be zero.");
+        assertEq(expectedSupplyApy, supplyApy, "Diff in snippets vs integration supplyAPY test");
+        if (expectedSupplyApy > 0) {
+            assertGt(supplyApy, 0, "The supplyAPY should be greater than zero but was found to be zero.");
         }
     }
 

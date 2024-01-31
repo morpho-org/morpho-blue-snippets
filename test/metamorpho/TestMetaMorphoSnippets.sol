@@ -120,7 +120,6 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         assertEq(Id.unwrap(withdrawQueueList[1]), Id.unwrap(expectedWithdrawQueue[1]));
     }
 
-    // Second assert is handling the if statement
     function testTotalCapAsset(uint256 capMarket1, uint256 capMarket2, uint256 capMarket3) public {
         capMarket1 = bound(capMarket1, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
         capMarket2 = bound(capMarket2, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
@@ -135,11 +134,8 @@ contract TestMetaMorphoSnippets is IntegrationTest {
             snippets.totalCapCollateral(address(vault), address(collateralToken)),
             "total collateral cap"
         );
-        assertEq(
-            0,
-            snippets.totalCapCollateral(address(vault), address(loanToken)),
-            "Total loanToken cap should be zero as per the if condition"
-        );
+        // Second assert is handling the if statement
+        assertEq(0, snippets.totalCapCollateral(address(vault), address(loanToken)), "the total loan cap should be 0");
     }
 
     function testSupplyAPY0(Market memory market) public {
@@ -269,7 +265,7 @@ contract TestMetaMorphoSnippets is IntegrationTest {
     }
 
     // It covers the branch of _approveMaxVault
-    function testDepositInVault0Approval(uint256 assets) public {
+    function testDepositInVaultWithoutPreviousApproval(uint256 assets) public {
         assets = bound(assets, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
         loanToken.setBalance(SUPPLIER, assets);
         vm.startPrank(SUPPLIER);
