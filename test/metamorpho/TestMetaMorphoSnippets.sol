@@ -268,10 +268,13 @@ contract TestMetaMorphoSnippets is IntegrationTest {
     function testDepositInVaultWithoutPreviousApproval(uint256 assets) public {
         assets = bound(assets, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
         loanToken.setBalance(SUPPLIER, assets);
-        vm.startPrank(SUPPLIER);
-        vault.approve(address(snippets), 0);
+
+        vm.prank(address(snippets));
+        loanToken.approve(address(vault), 0);
+
+        vm.prank(SUPPLIER);
         uint256 shares = snippets.depositInVault(address(vault), assets, SUPPLIER);
-        vm.stopPrank();
+
         assertGt(shares, 0, "shares");
         assertEq(vault.balanceOf(SUPPLIER), shares, "balanceOf(SUPPLIER)");
     }
