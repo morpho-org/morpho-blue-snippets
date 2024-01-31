@@ -81,10 +81,10 @@ contract LeverageDeleverageSnippets is IMorphoSupplyCollateralCallback, IMorphoR
     /// @notice Creates a leveraged position with a specified `leverageFactor` on the `marketParams` market of Morpho
     /// Blue for the sender.
     /// @dev Requires the sender to hold `initAmountCollateral` and approve this contract to manage their positions on
-    /// Morpho Blue.
+    /// Morpho Blue (as this contract will borrow on behalf of the sender).
     /// @param leverageFactor The desired leverage factor, cannot exceed the limit of 1/1-LLTV.
     /// @param initAmountCollateral The initial amount of collateral held by the sender.
-    /// @param marketParams Details of the market on which to execute the leverage operation.
+    /// @param marketParams Parameters of the market on which to execute the leverage operation.
     function leverageMe(uint256 leverageFactor, uint256 initAmountCollateral, MarketParams calldata marketParams)
         public
     {
@@ -118,8 +118,9 @@ contract LeverageDeleverageSnippets is IMorphoSupplyCollateralCallback, IMorphoR
     /// @notice Deleverages the sender on the given `marketParams` market of Morpho Blue by repaying his debt and
     /// withdrawing his collateral. The withdrawn assets are sent to the sender.
     /// @dev If the sender has a leveraged position on `marketParams`, he doesn't need any tokens to perform this
-    /// operation.
-    /// @param marketParams The market of the leverage position.
+    /// operation, but he needs to have approved this contract to manage their positions on Morpho Blue (as this
+    /// contract will withdrawCollateral on behalf of the sender).
+    /// @param marketParams Parameters of the market.
     function deLeverageMe(MarketParams calldata marketParams) public returns (uint256 amountRepaid) {
         uint256 totalShares = morpho.borrowShares(marketParams.id(), msg.sender);
 

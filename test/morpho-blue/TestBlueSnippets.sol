@@ -419,7 +419,7 @@ contract TestIntegrationSnippets is BaseTest {
         amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
         oracle.setPrice(priceCollateral);
         amountRepaid = bound(amountRepaid, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
-        
+
         _supply(amountSupplied);
 
         oracle.setPrice(priceCollateral);
