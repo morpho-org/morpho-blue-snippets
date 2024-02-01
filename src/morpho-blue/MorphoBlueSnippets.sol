@@ -18,10 +18,10 @@ import {SharesMathLib} from "../../lib/morpho-blue/src/libraries/SharesMathLib.s
 
 import {ORACLE_PRICE_SCALE} from "../../lib/morpho-blue/src/libraries/ConstantsLib.sol";
 
-/// @title Snippets
+/// @title Morpho Blue Snippets
 /// @author Morpho Labs
 /// @custom:contact security@morpho.org
-/// @notice The Morpho Snippets contract.
+/// @notice The Morpho Blue Snippets contract.
 contract MorphoBlueSnippets {
     using MathLib for uint256;
     using MorphoLib for IMorpho;
@@ -44,40 +44,35 @@ contract MorphoBlueSnippets {
 
     /*  VIEW FUNCTIONS */
 
-    // INFORMATIONAL: No 'Total Supply' and no 'Total Borrow' functions to calculate on chain as there could be some
-    // weird oracles / markets created
-
     /// @notice Calculates the supply APY (Annual Percentage Yield) for a given market.
     /// @param marketParams The parameters of the market.
     /// @param market The market for which the supply APY is being calculated.
-    /// @return supplyRate The calculated supply APY (scaled by WAD).
+    /// @return supplyApy The calculated supply APY (scaled by WAD).
     function supplyAPY(MarketParams memory marketParams, Market memory market)
         public
         view
-        returns (uint256 supplyRate)
+        returns (uint256 supplyApy)
     {
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
         // Get the borrow rate
-        uint256 borrowRate = borrowAPY(marketParams, market);
-
-        // Get the supply rate
-        uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
-
-        supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
+        if (marketParams.irm != address(0)) {
+            uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
+            supplyApy = borrowAPY(marketParams, market).wMulDown(1 ether - market.fee).wMulDown(utilization);
+        }
     }
 
     /// @notice Calculates the borrow APY (Annual Percentage Yield) for a given market.
     /// @param marketParams The parameters of the market.
-    /// @param market The market for which the borrow APY is being calculated.
-    /// @return borrowRate The calculated borrow APY (scaled by WAD).
+    /// @param market The state of the market.
+    /// @return borrowApy The calculated borrow APY (scaled by WAD).
     function borrowAPY(MarketParams memory marketParams, Market memory market)
         public
         view
-        returns (uint256 borrowRate)
+        returns (uint256 borrowApy)
     {
         if (marketParams.irm != address(0)) {
-            borrowRate = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(365 days);
+            borrowApy = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         }
     }
 
@@ -165,7 +160,7 @@ contract MorphoBlueSnippets {
         ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
 
-        uint256 shares = 0;
+        uint256 shares;
         address onBehalf = msg.sender;
 
         (assetsSupplied, sharesSupplied) = morpho.supply(marketParams, amount, shares, onBehalf, hex"");
@@ -202,7 +197,7 @@ contract MorphoBlueSnippets {
         external
         returns (uint256 assetsWithdrawn, uint256 sharesWithdrawn)
     {
-        uint256 shares = 0;
+        uint256 shares;
         address onBehalf = msg.sender;
         address receiver = msg.sender;
 
@@ -219,7 +214,7 @@ contract MorphoBlueSnippets {
     {
         Id marketId = marketParams.id();
         uint256 supplyShares = morpho.position(marketId, msg.sender).supplyShares;
-        uint256 amount = 0;
+        uint256 amount;
         uint256 shares = supplyShares / 2;
 
         address onBehalf = msg.sender;
@@ -238,7 +233,7 @@ contract MorphoBlueSnippets {
     {
         Id marketId = marketParams.id();
         uint256 supplyShares = morpho.position(marketId, msg.sender).supplyShares;
-        uint256 amount = 0;
+        uint256 amount;
 
         address onBehalf = msg.sender;
         address receiver = msg.sender;
@@ -284,7 +279,7 @@ contract MorphoBlueSnippets {
         external
         returns (uint256 assetsBorrowed, uint256 sharesBorrowed)
     {
-        uint256 shares = 0;
+        uint256 shares;
         address onBehalf = msg.sender;
         address receiver = msg.sender;
 
@@ -303,7 +298,7 @@ contract MorphoBlueSnippets {
         ERC20(marketParams.loanToken).forceApprove(address(morpho), type(uint256).max);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), amount);
 
-        uint256 shares = 0;
+        uint256 shares;
         address onBehalf = msg.sender;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, shares, onBehalf, hex"");
     }
@@ -326,7 +321,7 @@ contract MorphoBlueSnippets {
         uint256 repaidAmount = (borrowShares / 2).toAssetsUp(totalBorrowAssets, totalBorrowShares);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
 
-        uint256 amount = 0;
+        uint256 amount;
         address onBehalf = msg.sender;
 
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares / 2, onBehalf, hex"");
@@ -347,7 +342,7 @@ contract MorphoBlueSnippets {
         uint256 repaidAmount = borrowShares.toAssetsUp(totalBorrowAssets, totalBorrowShares);
         ERC20(marketParams.loanToken).safeTransferFrom(msg.sender, address(this), repaidAmount);
 
-        uint256 amount = 0;
+        uint256 amount;
         address onBehalf = msg.sender;
         (assetsRepaid, sharesRepaid) = morpho.repay(marketParams, amount, borrowShares, onBehalf, hex"");
     }

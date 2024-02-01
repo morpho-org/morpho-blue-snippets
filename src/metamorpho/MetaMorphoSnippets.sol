@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IMetaMorpho} from "../../lib/metamorpho/src/interfaces/IMetaMorpho.sol";
+import {IMetaMorpho, MarketAllocation} from "../../lib/metamorpho/src/interfaces/IMetaMorpho.sol";
 import {ConstantsLib} from "../../lib/metamorpho/src/libraries/ConstantsLib.sol";
 
 import {MarketParamsLib} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/MarketParamsLib.sol";
@@ -66,21 +66,17 @@ contract MetaMorphoSnippets {
         for (uint256 i; i < queueLength; ++i) {
             supplyQueueList[i] = IMetaMorpho(vault).supplyQueue(i);
         }
-
-        return supplyQueueList;
     }
 
     /// @notice Returns the withdraw queue a MetaMorpho `vault`.
     /// @param vault The address of the MetaMorpho vault.
     function withdrawQueueVault(address vault) public view returns (Id[] memory withdrawQueueList) {
-        uint256 queueLength = IMetaMorpho(vault).supplyQueueLength();
+        uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
         withdrawQueueList = new Id[](queueLength);
 
         for (uint256 i; i < queueLength; ++i) {
             withdrawQueueList[i] = IMetaMorpho(vault).withdrawQueue(i);
         }
-
-        return withdrawQueueList;
     }
 
     /// @notice Returns the sum of the supply caps of markets with the same collateral `token` on a MetaMorpho `vault`.
@@ -100,13 +96,13 @@ contract MetaMorphoSnippets {
         }
     }
 
-    /// @notice Returns the current APY of the vault on a Morpho Blue market.
+    /// @notice Returns the current APY of a Morpho Blue market.
     /// @param marketParams The morpho blue market parameters.
     /// @param market The morpho blue market state.
     function supplyAPYMarket(MarketParams memory marketParams, Market memory market)
         public
         view
-        returns (uint256 supplyRate)
+        returns (uint256 supplyApy)
     {
         // Get the borrow rate
         uint256 borrowRate;
@@ -121,13 +117,13 @@ contract MetaMorphoSnippets {
         // Get the supply rate
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
+        supplyApy = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
     }
 
     /// @notice Returns the current APY of a MetaMorpho vault.
     /// @dev It is computed as the sum of all APY of enabled markets weighted by the supply on these markets.
     /// @param vault The address of the MetaMorpho vault.
-    function supplyAPYVault(address vault) public view returns (uint256 avgSupplyRate) {
+    function supplyAPYVault(address vault) public view returns (uint256 avgSupplyApy) {
         uint256 ratio;
         uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
 
@@ -144,7 +140,7 @@ contract MetaMorphoSnippets {
             ratio += currentSupplyAPY.wMulDown(vaultAsset);
         }
 
-        avgSupplyRate = ratio.wDivUp(totalAmount);
+        avgSupplyApy = ratio.mulDivDown(WAD - IMetaMorpho(vault).fee(), totalAmount);
     }
 
     // --- MANAGING FUNCTIONS ---

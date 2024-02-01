@@ -26,6 +26,8 @@
     "build:blue": "cd lib/morpho-blue/ && yarn build:forge && cd ../..",
     "build:metamorpho": "cd lib/metamorpho/ && yarn build:forge && cd ../..",
     "build:irm": "cd lib/morpho-blue-irm/ && forge build && cd ../..",
+    "cover:summary": "yarn build:blue && yarn build:metamorpho && FOUNDRY_PROFILE=test forge coverage --report summary",
+    "cover:report": "yarn build:blue && yarn build:metamorpho && FOUNDRY_PROFILE=test forge coverage --report lcov",
     "typecheck": "tsc --noEmit",
     "test:forge": "yarn build:blue && yarn build:metamorpho && FOUNDRY_PROFILE=test forge test",
     "test:forge:local": "FOUNDRY_MATCH_CONTRACT=LocalTest yarn test:forge",
