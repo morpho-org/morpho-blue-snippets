@@ -416,13 +416,11 @@ contract TestIntegrationSnippets is BaseTest {
     ) public {
         (amountCollateral, amountBorrowed, priceCollateral) =
             _boundHealthyPosition(amountCollateral, amountBorrowed, priceCollateral);
-        amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
         oracle.setPrice(priceCollateral);
+        amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
         amountRepaid = bound(amountRepaid, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
 
         _supply(amountSupplied);
-
-        oracle.setPrice(priceCollateral);
         collateralToken.setBalance(BORROWER, amountCollateral);
 
         vm.startPrank(BORROWER);
