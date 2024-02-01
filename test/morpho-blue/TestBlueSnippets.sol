@@ -19,8 +19,6 @@ contract TestIntegrationSnippets is BaseTest {
     using MarketParamsLib for MarketParams;
     using SharesMathLib for uint256;
 
-    uint256 testNumber;
-
     MarketParams internal idleMarketParams;
     Id internal idleMarketId;
 
@@ -28,8 +26,8 @@ contract TestIntegrationSnippets is BaseTest {
 
     function setUp() public virtual override {
         super.setUp();
+
         snippets = new MorphoBlueSnippets(address(morpho));
-        testNumber = 42;
 
         vm.startPrank(SUPPLIER);
         loanToken.approve(address(snippets), type(uint256).max);
@@ -168,10 +166,10 @@ contract TestIntegrationSnippets is BaseTest {
 
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
-        uint256 borrowTrue = irm.borrowRateView(marketParams, market).wTaylorCompounded(365 days);
+        uint256 borrowApy = irm.borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        uint256 expectedSupplyApy = borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
+        uint256 expectedSupplyApy = borrowApy.wMulDown(1 ether - market.fee).wMulDown(utilization);
 
         uint256 supplyApy = snippets.supplyAPY(marketParams, market);
 
@@ -280,8 +278,8 @@ contract TestIntegrationSnippets is BaseTest {
 
     // cover the 2 cases of withdrawAmountOrAll
     function testWithdrawAmountOrAll(uint256 amountSuplied, uint256 amountWithdrawn) public {
-        amountSuplied = bound(amountSuplied, 1, MAX_TEST_AMOUNT);
-        amountWithdrawn = bound(amountWithdrawn, 1, MAX_TEST_AMOUNT);
+        amountSuplied = bound(amountSuplied, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
+        amountWithdrawn = bound(amountWithdrawn, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
         loanToken.setBalance(SUPPLIER, amountSuplied);
 
         vm.startPrank(SUPPLIER);
@@ -321,11 +319,10 @@ contract TestIntegrationSnippets is BaseTest {
     ) public {
         (amountCollateral, amountBorrowed, priceCollateral) =
             _boundHealthyPosition(amountCollateral, amountBorrowed, priceCollateral);
-
         amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
-        _supply(amountSupplied);
-
         oracle.setPrice(priceCollateral);
+
+        _supply(amountSupplied);
 
         collateralToken.setBalance(BORROWER, amountCollateral);
         vm.startPrank(BORROWER);
@@ -347,9 +344,10 @@ contract TestIntegrationSnippets is BaseTest {
         (amountCollateral, amountBorrowed, priceCollateral) =
             _boundHealthyPosition(amountCollateral, amountBorrowed, priceCollateral);
         amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
-        _supply(amountSupplied);
         oracle.setPrice(priceCollateral);
         amountRepaid = bound(amountRepaid, 1, amountBorrowed);
+
+        _supply(amountSupplied);
 
         collateralToken.setBalance(BORROWER, amountCollateral);
         vm.startPrank(BORROWER);
@@ -371,8 +369,9 @@ contract TestIntegrationSnippets is BaseTest {
         (amountCollateral, amountBorrowed, priceCollateral) =
             _boundHealthyPosition(amountCollateral, amountBorrowed, priceCollateral);
         amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
-        _supply(amountSupplied);
         oracle.setPrice(priceCollateral);
+
+        _supply(amountSupplied);
 
         collateralToken.setBalance(BORROWER, amountCollateral);
         vm.startPrank(BORROWER);
@@ -393,8 +392,9 @@ contract TestIntegrationSnippets is BaseTest {
         (amountCollateral, amountBorrowed, priceCollateral) =
             _boundHealthyPosition(amountCollateral, amountBorrowed, priceCollateral);
         amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
-        _supply(amountSupplied);
         oracle.setPrice(priceCollateral);
+
+        _supply(amountSupplied);
 
         collateralToken.setBalance(BORROWER, amountCollateral);
         vm.startPrank(BORROWER);
@@ -414,15 +414,13 @@ contract TestIntegrationSnippets is BaseTest {
         uint256 amountRepaid,
         uint256 priceCollateral
     ) public {
-        amountRepaid = bound(amountRepaid, 1, MAX_TEST_AMOUNT);
-
         (amountCollateral, amountBorrowed, priceCollateral) =
             _boundHealthyPosition(amountCollateral, amountBorrowed, priceCollateral);
-
-        amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
-        _supply(amountSupplied);
-
         oracle.setPrice(priceCollateral);
+        amountSupplied = bound(amountSupplied, amountBorrowed, MAX_TEST_AMOUNT);
+        amountRepaid = bound(amountRepaid, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
+
+        _supply(amountSupplied);
         collateralToken.setBalance(BORROWER, amountCollateral);
 
         vm.startPrank(BORROWER);
@@ -455,28 +453,19 @@ contract TestIntegrationSnippets is BaseTest {
         if (fee != morpho.fee(id)) morpho.setFee(marketParams, fee);
         vm.stopPrank();
 
-        if (amountSupplied > 0) {
-            loanToken.setBalance(SUPPLIER, amountSupplied);
-            vm.prank(SUPPLIER);
-            morpho.supply(marketParams, amountSupplied, 0, SUPPLIER, hex"");
+        loanToken.setBalance(SUPPLIER, amountSupplied);
+        vm.prank(SUPPLIER);
+        morpho.supply(marketParams, amountSupplied, 0, SUPPLIER, hex"");
 
-            if (amountBorrowed > 0) {
-                uint256 collateralPrice = oracle.price();
-                collateralToken.setBalance(
-                    BORROWER, amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice)
-                );
+        uint256 collateralPrice = oracle.price();
+        uint256 amountCollateral =
+            amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
+        collateralToken.setBalance(BORROWER, amountCollateral);
 
-                vm.startPrank(BORROWER);
-                morpho.supplyCollateral(
-                    marketParams,
-                    amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice),
-                    BORROWER,
-                    hex""
-                );
-                morpho.borrow(marketParams, amountBorrowed, 0, BORROWER, BORROWER);
-                vm.stopPrank();
-            }
-        }
+        vm.startPrank(BORROWER);
+        morpho.supplyCollateral(marketParams, amountCollateral, BORROWER, hex"");
+        morpho.borrow(marketParams, amountBorrowed, 0, BORROWER, BORROWER);
+        vm.stopPrank();
 
         _forward(blocks);
     }
@@ -498,17 +487,12 @@ contract TestIntegrationSnippets is BaseTest {
         morpho.supply(marketParams, amountSupplied, 0, SUPPLIER, hex"");
 
         uint256 collateralPrice = IOracle(marketParams.oracle).price();
-        collateralToken.setBalance(
-            BORROWER, amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice)
-        );
+        uint256 amountCollateral =
+            amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
+        collateralToken.setBalance(BORROWER, amountCollateral);
 
         vm.startPrank(BORROWER);
-        morpho.supplyCollateral(
-            marketParams,
-            amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice),
-            BORROWER,
-            hex""
-        );
+        morpho.supplyCollateral(marketParams, amountCollateral, BORROWER, hex"");
         morpho.borrow(marketParams, amountBorrowed, 0, BORROWER, BORROWER);
         vm.stopPrank();
     }

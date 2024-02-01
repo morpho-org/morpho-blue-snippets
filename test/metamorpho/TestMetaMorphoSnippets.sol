@@ -244,7 +244,7 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         uint256 rateMarket1 = snippets.supplyAPYMarket(allMarkets[1], market1);
         uint256 avgRateNum = rateMarket0.wMulDown(firstDeposit) + rateMarket1.wMulDown(secondDeposit);
 
-        uint256 expectedAvgRate = avgRateNum.wDivUp(firstDeposit + secondDeposit);
+        uint256 expectedAvgRate = avgRateNum.mulDivDown(WAD - vault.fee(), firstDeposit + secondDeposit);
 
         uint256 avgSupplyRateSnippets = snippets.supplyAPYVault(address(vault));
 
@@ -281,7 +281,7 @@ contract TestMetaMorphoSnippets is IntegrationTest {
 
     function testWithdrawFromVaultAmount(uint256 deposited, uint256 withdrawn) public {
         deposited = bound(deposited, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
-        withdrawn = bound(withdrawn, 0, deposited);
+        withdrawn = bound(withdrawn, MIN_TEST_ASSETS, deposited);
 
         loanToken.setBalance(SUPPLIER, deposited);
         vm.startPrank(SUPPLIER);
