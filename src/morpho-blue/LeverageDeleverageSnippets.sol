@@ -99,7 +99,7 @@ contract LeverageDeleverageSnippets is IMorphoSupplyCollateralCallback, IMorphoR
         // In a real-world scenario:
         // - The price might not equal `ORACLE_PRICE_SCALE`, and the oracle's price should be factored into the
         // calculation, like this:
-        // (leverageFactor - 1) * initAmountCollateral.mulDivDown.(ORACLE_PRICE_SCALE, IOracle(oracle).price())
+        // (leverageFactor - 1) * initAmountCollateral.mulDivDown(ORACLE_PRICE_SCALE, IOracle(oracle).price())
         // - Consideration for fees and slippage is crucial to accurately compute `loanAmount`.
         uint256 loanAmount = (leverageFactor - 1) * initAmountCollateral;
 
