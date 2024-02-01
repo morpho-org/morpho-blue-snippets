@@ -134,7 +134,6 @@ contract TestMetaMorphoSnippets is IntegrationTest {
             snippets.totalCapCollateral(address(vault), address(collateralToken)),
             "total collateral cap"
         );
-        // Second assert is handling the if statement
         assertEq(0, snippets.totalCapCollateral(address(vault), address(loanToken)), "the total loan cap should be 0");
     }
 
@@ -147,12 +146,12 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         MarketParams memory marketParams = allMarkets[0];
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
-        uint256 borrowTrue = irm.borrowRateView(marketParams, market);
+        uint256 borrowApyTrue = irm.borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
         assertEq(utilization, 0, "Diff in snippets vs integration supplyAPY test");
         assertEq(
-            borrowTrue.wMulDown(1 ether - market.fee).wMulDown(utilization),
+            borrowApyTrue.wMulDown(1 ether - market.fee).wMulDown(utilization),
             0,
             "Diff in snippets vs integration supplyAPY test"
         );
@@ -185,19 +184,18 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         MarketParams memory marketParams = allMarkets[0];
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
-        uint256 borrowTrue = irm.borrowRateView(marketParams, market);
+        uint256 borrowApyTrue = irm.borrowRateView(marketParams, market).wTaylorCompounded(365 days);
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
-        uint256 supplyTrue = borrowTrue.wTaylorCompounded(1).wMulDown(1 ether - market.fee).wMulDown(utilization);
+        uint256 supplyApyTrue = borrowApyTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
 
         uint256 supplyToTest = snippets.supplyAPYMarket(marketParams, market);
 
-        // handling in if-else the situation where utilization = 0 otherwise too many rejects
         if (utilization == 0) {
-            assertEq(supplyTrue, 0, "supply rate == 0");
-            assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
+            assertEq(supplyApyTrue, 0, "supply rate == 0");
+            assertEq(supplyApyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
         } else {
-            assertGt(supplyTrue, 0, "supply rate == 0");
-            assertEq(supplyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
+            assertGt(supplyApyTrue, 0, "supply rate == 0");
+            assertEq(supplyApyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
         }
     }
 
@@ -242,13 +240,13 @@ contract TestMetaMorphoSnippets is IntegrationTest {
 
         uint256 rateMarket0 = snippets.supplyAPYMarket(allMarkets[0], market0);
         uint256 rateMarket1 = snippets.supplyAPYMarket(allMarkets[1], market1);
-        uint256 avgRateNum = rateMarket0.wMulDown(firstDeposit) + rateMarket1.wMulDown(secondDeposit);
+        uint256 avgApyNum = rateMarket0.wMulDown(firstDeposit) + rateMarket1.wMulDown(secondDeposit);
 
-        uint256 expectedAvgRate = avgRateNum.mulDivDown(WAD - vault.fee(), firstDeposit + secondDeposit);
+        uint256 expectedAvgApy = avgApyNum.mulDivDown(WAD - vault.fee(), firstDeposit + secondDeposit);
 
-        uint256 avgSupplyRateSnippets = snippets.supplyAPYVault(address(vault));
+        uint256 avgSupplyApySnippets = snippets.supplyAPYVault(address(vault));
 
-        assertEq(avgSupplyRateSnippets, expectedAvgRate, "avgSupplyRateSnippets == 0");
+        assertEq(avgSupplyApySnippets, expectedAvgApy, "avgSupplyApySnippets == 0");
     }
 
     // MANAGING FUNCTION
@@ -264,7 +262,6 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         assertEq(vault.balanceOf(SUPPLIER), shares, "balanceOf(SUPPLIER)");
     }
 
-    // It covers the branch of _approveMaxVault
     function testDepositInVaultWithoutPreviousApproval(uint256 assets) public {
         assets = bound(assets, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
         loanToken.setBalance(SUPPLIER, assets);

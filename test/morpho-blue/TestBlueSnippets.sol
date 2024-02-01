@@ -125,14 +125,12 @@ contract TestIntegrationSnippets is BaseTest {
         }
     }
 
-    // Cover the idle market case - borrow
     function testBorrowAPYIdleMarket(Market memory market) public {
         uint256 borrowApy = snippets.borrowAPY(idleMarketParams, market);
 
         assertEq(borrowApy, 0, "borrow Apy");
     }
 
-    // Cover the idle market case - supply
     function testSupplyAPYIdleMarket(uint256 amountSupplied, uint256 blocks, uint256 fee) public {
         _createIdleMarket();
 
@@ -140,7 +138,6 @@ contract TestIntegrationSnippets is BaseTest {
         blocks = _boundBlocks(blocks);
         fee = bound(fee, 0, MAX_FEE);
 
-        // Set fee parameters.
         vm.startPrank(OWNER);
         if (fee != morpho.fee(id)) morpho.setFee(idleMarketParams, fee);
         vm.stopPrank();
@@ -203,7 +200,6 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(actualHF, expectedHF);
     }
 
-    // Cover the branch of userHealthFactor
     function testHealthFactor0Borrow(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
         public
     {
@@ -276,7 +272,6 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(morpho.expectedSupplyAssets(marketParams, SUPPLIER), 0, "supply assets");
     }
 
-    // cover the 2 cases of withdrawAmountOrAll
     function testWithdrawAmountOrAll(uint256 amountSuplied, uint256 amountWithdrawn) public {
         amountSuplied = bound(amountSuplied, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
         amountWithdrawn = bound(amountWithdrawn, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT);
@@ -448,7 +443,6 @@ contract TestIntegrationSnippets is BaseTest {
         blocks = _boundBlocks(blocks);
         fee = bound(fee, 0, MAX_FEE);
 
-        // Set fee parameters.
         vm.startPrank(OWNER);
         if (fee != morpho.fee(id)) morpho.setFee(marketParams, fee);
         vm.stopPrank();
@@ -473,13 +467,11 @@ contract TestIntegrationSnippets is BaseTest {
     function _testMorphoLibCommon(uint256 amountSupplied, uint256 amountBorrowed, uint256 timestamp, uint256 fee)
         private
     {
-        // Set fee parameters.
         if (fee != morpho.fee(id)) {
             vm.prank(OWNER);
             morpho.setFee(marketParams, fee);
         }
 
-        // Set timestamp.
         vm.warp(timestamp);
 
         loanToken.setBalance(SUPPLIER, amountSupplied);

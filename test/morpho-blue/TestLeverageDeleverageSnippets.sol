@@ -14,8 +14,6 @@ contract LeverageDeleverageTest is BaseTest {
     using MarketParamsLib for MarketParams;
     using SharesMathLib for uint256;
 
-    address internal BORROWER_;
-
     ISwap internal swapper;
 
     LeverageDeleverageSnippets public snippets;
@@ -23,12 +21,10 @@ contract LeverageDeleverageTest is BaseTest {
     function setUp() public virtual override {
         super.setUp();
 
-        BORROWER_ = makeAddr("User");
-
         swapper = ISwap(address(new SwapMock(address(collateralToken), address(loanToken), address(oracle))));
         snippets = new LeverageDeleverageSnippets(morpho, swapper);
 
-        vm.startPrank(BORROWER_);
+        vm.startPrank(BORROWER);
         collateralToken.approve(address(snippets), type(uint256).max);
         morpho.setAuthorization(address(snippets), true);
         vm.stopPrank();
@@ -43,19 +39,19 @@ contract LeverageDeleverageTest is BaseTest {
 
         oracle.setPrice(ORACLE_PRICE_SCALE);
         loanToken.setBalance(SUPPLIER, finalAmountCollateral);
-        collateralToken.setBalance(BORROWER_, initAmountCollateral);
+        collateralToken.setBalance(BORROWER, initAmountCollateral);
 
         vm.prank(SUPPLIER);
         morpho.supply(marketParams, finalAmountCollateral, 0, SUPPLIER, hex"");
 
-        vm.prank(BORROWER_);
+        vm.prank(BORROWER);
         snippets.leverageMe(leverageFactor, initAmountCollateral, marketParams);
 
         uint256 loanAmount = initAmountCollateral * (leverageFactor - 1);
 
-        assertGt(morpho.borrowShares(marketParams.id(), BORROWER_), 0, "no borrow");
-        assertEq(morpho.collateral(marketParams.id(), BORROWER_), finalAmountCollateral, "no collateral");
-        assertEq(morpho.expectedBorrowAssets(marketParams, BORROWER_), loanAmount, "no collateral");
+        assertGt(morpho.borrowShares(marketParams.id(), BORROWER), 0, "no borrow");
+        assertEq(morpho.collateral(marketParams.id(), BORROWER), finalAmountCollateral, "no collateral");
+        assertEq(morpho.expectedBorrowAssets(marketParams, BORROWER), loanAmount, "no collateral");
     }
 
     function testOnlyMorphoEnforcementSupplyCollateral() public {
@@ -81,28 +77,27 @@ contract LeverageDeleverageTest is BaseTest {
 
         oracle.setPrice(ORACLE_PRICE_SCALE);
         loanToken.setBalance(SUPPLIER, finalAmountCollateral);
-        collateralToken.setBalance(BORROWER_, initAmountCollateral);
+        collateralToken.setBalance(BORROWER, initAmountCollateral);
 
         vm.prank(SUPPLIER);
         morpho.supply(marketParams, finalAmountCollateral, 0, SUPPLIER, hex"");
 
         uint256 loanAmount = initAmountCollateral * (leverageFactor - 1);
 
-        vm.prank(BORROWER_);
+        vm.prank(BORROWER);
         snippets.leverageMe(leverageFactor, initAmountCollateral, marketParams);
 
-        assertGt(morpho.borrowShares(marketParams.id(), BORROWER_), 0, "no borrow");
-        assertEq(morpho.collateral(marketParams.id(), BORROWER_), finalAmountCollateral, "no collateral");
-        assertEq(morpho.expectedBorrowAssets(marketParams, BORROWER_), loanAmount, "no collateral");
+        assertGt(morpho.borrowShares(marketParams.id(), BORROWER), 0, "no borrow");
+        assertEq(morpho.collateral(marketParams.id(), BORROWER), finalAmountCollateral, "no collateral");
+        assertEq(morpho.expectedBorrowAssets(marketParams, BORROWER), loanAmount, "no collateral");
 
-        /// end of testLeverageMe
-        vm.prank(BORROWER_);
+        vm.prank(BORROWER);
         uint256 amountRepaid = snippets.deLeverageMe(marketParams);
 
-        assertEq(morpho.borrowShares(marketParams.id(), BORROWER_), 0, "no borrow");
+        assertEq(morpho.borrowShares(marketParams.id(), BORROWER), 0, "no borrow");
         assertEq(amountRepaid, loanAmount, "no repaid");
         assertEq(
-            ERC20(marketParams.collateralToken).balanceOf(BORROWER_),
+            ERC20(marketParams.collateralToken).balanceOf(BORROWER),
             initAmountCollateral,
             "user didn't get back his assets"
         );

@@ -102,7 +102,7 @@ contract MetaMorphoSnippets {
     function supplyAPYMarket(MarketParams memory marketParams, Market memory market)
         public
         view
-        returns (uint256 supplyRate)
+        returns (uint256 supplyApy)
     {
         // Get the borrow rate
         uint256 borrowRate;
@@ -117,13 +117,13 @@ contract MetaMorphoSnippets {
         // Get the supply rate
         uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        supplyRate = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
+        supplyApy = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
     }
 
     /// @notice Returns the current APY of a MetaMorpho vault.
     /// @dev It is computed as the sum of all APY of enabled markets weighted by the supply on these markets.
     /// @param vault The address of the MetaMorpho vault.
-    function supplyAPYVault(address vault) public view returns (uint256 avgSupplyRate) {
+    function supplyAPYVault(address vault) public view returns (uint256 avgSupplyApy) {
         uint256 ratio;
         uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
 
@@ -140,7 +140,7 @@ contract MetaMorphoSnippets {
             ratio += currentSupplyAPY.wMulDown(vaultAsset);
         }
 
-        avgSupplyRate = ratio.mulDivDown(WAD - IMetaMorpho(vault).fee(), totalAmount);
+        avgSupplyApy = ratio.mulDivDown(WAD - IMetaMorpho(vault).fee(), totalAmount);
     }
 
     // --- MANAGING FUNCTIONS ---
