@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {MetaMorphoSnippets} from "../../src/metamorpho/MetaMorphoSnippets.sol";
 import "../../lib/metamorpho/test/forge/helpers/IntegrationTest.sol";
 import {IIrm} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IIrm.sol";
+import {IOracle} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IOracle.sol";
 import {SafeCast} from "../../lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 
 contract TestMetaMorphoSnippets is IntegrationTest {
@@ -393,7 +394,7 @@ contract TestMetaMorphoSnippets is IntegrationTest {
             vm.prank(SUPPLIER);
             morpho.supply(marketParams, amountSupplied, 0, SUPPLIER, hex"");
 
-            uint256 collateralPrice = oracle.price();
+            uint256 collateralPrice = IOracle(marketParams.oracle).price();
             uint256 amountCollateral =
                 amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
             collateralToken.setBalance(BORROWER, amountCollateral);
