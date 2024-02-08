@@ -5,6 +5,7 @@ import {MetaMorphoSnippets} from "../../src/metamorpho/MetaMorphoSnippets.sol";
 import "../../lib/metamorpho/test/forge/helpers/IntegrationTest.sol";
 import {IIrm} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IIrm.sol";
 import {IOracle} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IOracle.sol";
+import {MAX_FEE} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/ConstantsLib.sol";
 import {SafeCast} from "../../lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 
 contract TestMetaMorphoSnippets is IntegrationTest {
@@ -14,7 +15,7 @@ contract TestMetaMorphoSnippets is IntegrationTest {
     using Math for uint256;
     using MarketParamsLib for MarketParams;
 
-    uint256 internal constant MAX_FEE = 0.25e18;
+    // uint256 internal constant MAX_FEE = 0.25e18;
     MetaMorphoSnippets internal snippets;
 
     function setUp() public virtual override {
