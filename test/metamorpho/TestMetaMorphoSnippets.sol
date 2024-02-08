@@ -380,43 +380,29 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         blocks = _boundBlocks(blocks);
         fee = bound(fee, 0, MAX_FEE);
 
-        MarketParams memory marketParams0 = allMarkets[0];
-        MarketParams memory marketParams1 = allMarkets[1];
+        for (uint256 i = 0; i < 2; i++) {
+            MarketParams memory marketParams = allMarkets[i];
+            Id idMarket = Id(marketParams.id());
+            vm.startPrank(MORPHO_OWNER);
+            if (fee != morpho.fee(idMarket)) {
+                morpho.setFee(marketParams, fee);
+            }
+            vm.stopPrank();
 
-        Id idMarket0 = Id(marketParams0.id());
-        Id idMarket1 = Id(marketParams1.id());
+            loanToken.setBalance(SUPPLIER, amountSupplied);
+            vm.prank(SUPPLIER);
+            morpho.supply(marketParams, amountSupplied, 0, SUPPLIER, hex"");
 
-        vm.startPrank(MORPHO_OWNER);
-        if (fee != morpho.fee(idMarket0)) morpho.setFee(marketParams0, fee);
-        if (fee != morpho.fee(idMarket1)) morpho.setFee(marketParams1, fee);
-        vm.stopPrank();
+            uint256 collateralPrice = oracle.price();
+            uint256 amountCollateral =
+                amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
+            collateralToken.setBalance(BORROWER, amountCollateral);
 
-        loanToken.setBalance(SUPPLIER, amountSupplied);
-        vm.prank(SUPPLIER);
-        morpho.supply(marketParams0, amountSupplied, 0, SUPPLIER, hex"");
-
-        loanToken.setBalance(SUPPLIER, amountSupplied);
-        vm.prank(SUPPLIER);
-        morpho.supply(marketParams1, amountSupplied, 0, SUPPLIER, hex"");
-
-        uint256 collateralPrice = oracle.price();
-        uint256 amountCollateral =
-            amountBorrowed.wDivUp(marketParams0.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
-        collateralToken.setBalance(BORROWER, amountCollateral);
-
-        vm.startPrank(BORROWER);
-        morpho.supplyCollateral(marketParams0, amountCollateral, BORROWER, hex"");
-        morpho.borrow(marketParams0, amountBorrowed, 0, BORROWER, BORROWER);
-        vm.stopPrank();
-
-        uint256 collateralPrice2 = oracle.price();
-        uint256 amountCollateral2 =
-            amountBorrowed.wDivUp(marketParams1.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice2);
-        collateralToken.setBalance(BORROWER, amountCollateral2);
-
-        vm.startPrank(BORROWER);
-        morpho.supplyCollateral(marketParams1, amountCollateral2, BORROWER, hex"");
-        morpho.borrow(marketParams1, amountBorrowed, 0, BORROWER, BORROWER);
+            vm.startPrank(BORROWER);
+            morpho.supplyCollateral(marketParams, amountCollateral, BORROWER, hex"");
+            morpho.borrow(marketParams, amountBorrowed, 0, BORROWER, BORROWER);
+            vm.stopPrank();
+        }
         vm.stopPrank();
 
         _forward(blocks);
