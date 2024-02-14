@@ -15,7 +15,6 @@ contract TestMetaMorphoSnippets is IntegrationTest {
     using Math for uint256;
     using MarketParamsLib for MarketParams;
 
-    // uint256 internal constant MAX_FEE = 0.25e18;
     MetaMorphoSnippets internal snippets;
 
     function setUp() public virtual override {
@@ -198,12 +197,10 @@ contract TestMetaMorphoSnippets is IntegrationTest {
     function testSupplyAPYMarket(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
         public
     {
-        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
         MarketParams memory marketParams = allMarkets[0];
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee, marketParams);
         Id id = Id(marketParams.id());
         Market memory market = morpho.market(id);
-
-        morpho.accrueInterest(marketParams);
 
         uint256 actualSupplyApy = snippets.supplyAPYMarket(marketParams, market);
 
@@ -231,15 +228,17 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         uint256 firstDeposit,
         uint256 secondDeposit
     ) public {
-        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
+        MarketParams memory marketParams0 = allMarkets[0];
+        MarketParams memory marketParams1 = allMarkets[1];
+
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee, marketParams0);
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee, marketParams1);
+
         firstDeposit = bound(firstDeposit, 1e10, MAX_TEST_ASSETS / 2);
         secondDeposit = bound(secondDeposit, 1e10, MAX_TEST_ASSETS / 2);
 
-        _setCap(allMarkets[0], firstDeposit);
-        _setCap(allMarkets[1], secondDeposit);
-
-        MarketParams memory marketParams0 = allMarkets[0];
-        MarketParams memory marketParams1 = allMarkets[1];
+        _setCap(marketParams0, firstDeposit);
+        _setCap(marketParams1, secondDeposit);
 
         Id id0 = Id(marketParams0.id());
         Id id1 = Id(marketParams1.id());
@@ -247,12 +246,9 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         Market memory market0 = morpho.market(id0);
         Market memory market1 = morpho.market(id1);
 
-        morpho.accrueInterest(marketParams0);
-        morpho.accrueInterest(marketParams1);
-
         Id[] memory supplyQueue = new Id[](2);
-        supplyQueue[0] = allMarkets[0].id();
-        supplyQueue[1] = allMarkets[1].id();
+        supplyQueue[0] = marketParams0.id();
+        supplyQueue[1] = marketParams1.id();
 
         vm.prank(ALLOCATOR);
         vault.setSupplyQueue(supplyQueue);
@@ -374,37 +370,36 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         _setCap(allMarkets[2], CAP);
     }
 
-    function _generatePendingInterest(uint256 amountSupplied, uint256 amountBorrowed, uint256 blocks, uint256 fee)
-        internal
-    {
+    function _generatePendingInterest(
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 blocks,
+        uint256 fee,
+        MarketParams memory marketParams
+    ) internal {
         amountSupplied = bound(amountSupplied, 1e12, MAX_TEST_ASSETS);
         amountBorrowed = bound(amountBorrowed, amountSupplied / 2, amountSupplied);
         blocks = _boundBlocks(blocks);
         fee = bound(fee, 0, MAX_FEE);
-
-        for (uint256 i = 0; i < 2; i++) {
-            MarketParams memory marketParams = allMarkets[i];
-            Id idMarket = Id(marketParams.id());
-            vm.startPrank(MORPHO_OWNER);
-            if (fee != morpho.fee(idMarket)) {
-                morpho.setFee(marketParams, fee);
-            }
-            vm.stopPrank();
-
-            loanToken.setBalance(SUPPLIER, amountSupplied);
-            vm.prank(SUPPLIER);
-            morpho.supply(marketParams, amountSupplied, 0, SUPPLIER, hex"");
-
-            uint256 collateralPrice = IOracle(marketParams.oracle).price();
-            uint256 amountCollateral =
-                amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
-            collateralToken.setBalance(BORROWER, amountCollateral);
-
-            vm.startPrank(BORROWER);
-            morpho.supplyCollateral(marketParams, amountCollateral, BORROWER, hex"");
-            morpho.borrow(marketParams, amountBorrowed, 0, BORROWER, BORROWER);
-            vm.stopPrank();
+        Id idMarket = Id(marketParams.id());
+        vm.startPrank(MORPHO_OWNER);
+        if (fee != morpho.fee(idMarket)) {
+            morpho.setFee(marketParams, fee);
         }
+        vm.stopPrank();
+
+        loanToken.setBalance(SUPPLIER, amountSupplied);
+        vm.prank(SUPPLIER);
+        morpho.supply(marketParams, amountSupplied, 0, SUPPLIER, hex"");
+
+        uint256 collateralPrice = IOracle(marketParams.oracle).price();
+        uint256 amountCollateral =
+            amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
+        collateralToken.setBalance(BORROWER, amountCollateral);
+
+        vm.startPrank(BORROWER);
+        morpho.supplyCollateral(marketParams, amountCollateral, BORROWER, hex"");
+        morpho.borrow(marketParams, amountBorrowed, 0, BORROWER, BORROWER);
         vm.stopPrank();
 
         _forward(blocks);
