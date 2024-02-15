@@ -3,7 +3,9 @@ pragma solidity ^0.8.0;
 
 import {MetaMorphoSnippets} from "../../src/metamorpho/MetaMorphoSnippets.sol";
 import "../../lib/metamorpho/test/forge/helpers/IntegrationTest.sol";
-
+import {IIrm} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IIrm.sol";
+import {IOracle} from "../../lib/metamorpho/lib/morpho-blue/src/interfaces/IOracle.sol";
+import {MAX_FEE} from "../../lib/metamorpho/lib/morpho-blue/src/libraries/ConstantsLib.sol";
 import {SafeCast} from "../../lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 
 contract TestMetaMorphoSnippets is IntegrationTest {
@@ -21,6 +23,8 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         snippets = new MetaMorphoSnippets(address(morpho));
 
         _setCap(allMarkets[0], CAP);
+        _setCap(allMarkets[1], CAP);
+
         _sortSupplyQueueIdleLast();
 
         vm.startPrank(SUPPLIER);
@@ -137,75 +141,9 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         assertEq(0, snippets.totalCapCollateral(address(vault), address(loanToken)), "the total loan cap should be 0");
     }
 
-    function testSupplyAPY0(Market memory market) public {
-        vm.assume(market.totalBorrowAssets == 0);
-        vm.assume(market.lastUpdate > 0);
-        vm.assume(market.fee < 1 ether);
-        vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
-
-        MarketParams memory marketParams = allMarkets[0];
-        (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
-
-        uint256 borrowApyTrue = irm.borrowRateView(marketParams, market).wTaylorCompounded(365 days);
-        uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
-
-        assertEq(utilization, 0, "Diff in snippets vs integration supplyAPY test");
-        assertEq(
-            borrowApyTrue.wMulDown(1 ether - market.fee).wMulDown(utilization),
-            0,
-            "Diff in snippets vs integration supplyAPY test"
-        );
-        assertEq(snippets.supplyAPYMarket(marketParams, market), 0, "Diff in snippets vs integration supplyAPY test");
-    }
-
-    function testSupplyAPYIdleMarket() public {
-        Market memory market;
-        MarketParams memory idleMarket;
-        idleMarket.loanToken = address(loanToken);
-
-        vm.prank(MORPHO_OWNER);
-        morpho.enableIrm(address(0));
-
-        morpho.createMarket(idleMarket);
-
-        uint256 supplyAPY = snippets.supplyAPYMarket(idleMarket, market);
-
-        assertEq(supplyAPY, 0, "supply APY");
-    }
-
-    function testSupplyAPYMarket(Market memory market) public {
-        vm.assume(market.totalBorrowAssets > 0);
-        vm.assume(market.totalBorrowShares > 0);
-        vm.assume(market.totalSupplyAssets > 0);
-        vm.assume(market.totalSupplyShares > 0);
-        vm.assume(market.fee < 1 ether);
-        vm.assume(market.totalSupplyAssets >= market.totalBorrowAssets);
-
-        MarketParams memory marketParams = allMarkets[0];
-        (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
-
-        uint256 borrowApyTrue = irm.borrowRateView(marketParams, market).wTaylorCompounded(365 days);
-        uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
-        uint256 supplyApyTrue = borrowApyTrue.wMulDown(1 ether - market.fee).wMulDown(utilization);
-
-        uint256 supplyToTest = snippets.supplyAPYMarket(marketParams, market);
-
-        if (utilization == 0) {
-            assertEq(supplyApyTrue, 0, "supply rate == 0");
-            assertEq(supplyApyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
-        } else {
-            assertGt(supplyApyTrue, 0, "supply rate == 0");
-            assertEq(supplyApyTrue, supplyToTest, "Diff in snippets vs integration supplyAPY test");
-        }
-    }
-
-    function testSupplyAPYVault(uint256 firstDeposit, uint256 secondDeposit, uint256 firstBorrow, uint256 secondBorrow)
-        public
-    {
+    function testSupplyAPY0(uint256 firstDeposit, uint256 secondDeposit) public {
         firstDeposit = bound(firstDeposit, MIN_TEST_ASSETS, MAX_TEST_ASSETS / 2);
         secondDeposit = bound(secondDeposit, MIN_TEST_ASSETS, MAX_TEST_ASSETS / 2);
-        firstBorrow = bound(firstBorrow, MIN_TEST_ASSETS, firstDeposit);
-        secondBorrow = bound(secondBorrow, MIN_TEST_ASSETS, secondDeposit);
 
         _setCap(allMarkets[0], firstDeposit);
         _setCap(allMarkets[1], secondDeposit);
@@ -223,15 +161,6 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         vault.deposit(secondDeposit, ONBEHALF);
         vm.stopPrank();
 
-        collateralToken.setBalance(BORROWER, 2 * MAX_TEST_ASSETS);
-        vm.startPrank(BORROWER);
-        morpho.supplyCollateral(allMarkets[0], MAX_TEST_ASSETS, BORROWER, hex"");
-        morpho.borrow(allMarkets[0], firstBorrow, 0, BORROWER, BORROWER);
-
-        morpho.supplyCollateral(allMarkets[1], MAX_TEST_ASSETS, BORROWER, hex"");
-        morpho.borrow(allMarkets[1], secondBorrow / 4, 0, BORROWER, BORROWER);
-        vm.stopPrank();
-
         Id id0 = Id(allMarkets[0].id());
         Id id1 = Id(allMarkets[1].id());
 
@@ -240,13 +169,107 @@ contract TestMetaMorphoSnippets is IntegrationTest {
 
         uint256 rateMarket0 = snippets.supplyAPYMarket(allMarkets[0], market0);
         uint256 rateMarket1 = snippets.supplyAPYMarket(allMarkets[1], market1);
+
+        assertEq(rateMarket0, 0, "rate market 0 not eq to 0 while there is no borrow");
+        assertEq(rateMarket1, 0, "rate market 1 not eq to 0 while there is no borrow");
+    }
+
+    function testSupplyAPYIdleMarket(uint256 deposit) public {
+        deposit = bound(deposit, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
+
+        Id idleId = idleParams.id();
+        Market memory idleMarket = morpho.market(idleId);
+        Id[] memory supplyQueue = new Id[](1);
+
+        supplyQueue[0] = idleId;
+        vm.prank(ALLOCATOR);
+        vault.setSupplyQueue(supplyQueue);
+
+        loanToken.setBalance(SUPPLIER, deposit);
+        vm.prank(SUPPLIER);
+        vault.deposit(deposit, ONBEHALF);
+
+        uint256 supplyAPY = snippets.supplyAPYMarket(idleParams, idleMarket);
+
+        assertEq(supplyAPY, 0, "the supply APY in idle market should be zero");
+    }
+
+    function testSupplyAPYMarket(uint256 amountSupplied, uint256 amountBorrowed, uint256 timeElapsed, uint256 fee)
+        public
+    {
+        MarketParams memory marketParams = allMarkets[0];
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee, marketParams);
+        Id id = Id(marketParams.id());
+        Market memory market = morpho.market(id);
+
+        uint256 actualSupplyApy = snippets.supplyAPYMarket(marketParams, market);
+
+        (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
+
+        uint256 borrowApy = IIrm(marketParams.irm).borrowRateView(marketParams, market).wTaylorCompounded(365 days);
+
+        uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
+        uint256 expectedSupplyApy = borrowApy.wMulDown(1 ether - market.fee).wMulDown(utilization);
+
+        if (utilization == 0 || marketParams.irm == address(0)) {
+            assertEq(actualSupplyApy, 0, "the actualSupplyApy should be 0");
+        } else {
+            assertGt(actualSupplyApy, 0, "the actualSupplyApy should not be 0");
+            assertGt(expectedSupplyApy, 0, "the expectedSupplyApy should not be 0");
+            assertEq(actualSupplyApy, expectedSupplyApy, "Diff in snippets vs integration supplyAPY test");
+        }
+    }
+
+    function testSupplyAPYVault(
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 timeElapsed,
+        uint256 fee,
+        uint256 firstDeposit,
+        uint256 secondDeposit
+    ) public {
+        MarketParams memory marketParams0 = allMarkets[0];
+        MarketParams memory marketParams1 = allMarkets[1];
+
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee, marketParams0);
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee, marketParams1);
+
+        firstDeposit = bound(firstDeposit, 1e10, MAX_TEST_ASSETS / 2);
+        secondDeposit = bound(secondDeposit, 1e10, MAX_TEST_ASSETS / 2);
+
+        _setCap(marketParams0, firstDeposit);
+        _setCap(marketParams1, secondDeposit);
+
+        Id id0 = Id(marketParams0.id());
+        Id id1 = Id(marketParams1.id());
+
+        Market memory market0 = morpho.market(id0);
+        Market memory market1 = morpho.market(id1);
+
+        Id[] memory supplyQueue = new Id[](2);
+        supplyQueue[0] = marketParams0.id();
+        supplyQueue[1] = marketParams1.id();
+
+        vm.prank(ALLOCATOR);
+        vault.setSupplyQueue(supplyQueue);
+
+        loanToken.setBalance(SUPPLIER, firstDeposit + secondDeposit);
+        vm.startPrank(SUPPLIER);
+        vault.deposit(firstDeposit, ONBEHALF);
+        vault.deposit(secondDeposit, ONBEHALF);
+        vm.stopPrank();
+
+        uint256 rateMarket0 = snippets.supplyAPYMarket(marketParams0, market0);
+        uint256 rateMarket1 = snippets.supplyAPYMarket(marketParams1, market1);
         uint256 avgApyNum = rateMarket0.wMulDown(firstDeposit) + rateMarket1.wMulDown(secondDeposit);
 
         uint256 expectedAvgApy = avgApyNum.mulDivDown(WAD - vault.fee(), firstDeposit + secondDeposit);
 
         uint256 avgSupplyApySnippets = snippets.supplyAPYVault(address(vault));
 
-        assertEq(avgSupplyApySnippets, expectedAvgApy, "avgSupplyApySnippets == 0");
+        assertGt(rateMarket0, 0, "avgSupplyApySnippets == 0");
+        assertGt(rateMarket1, 0, "avgSupplyApySnippets == 0");
+        assertApproxEqAbs(avgSupplyApySnippets, expectedAvgApy, MIN_TEST_ASSETS);
     }
 
     // MANAGING FUNCTION
@@ -345,5 +368,40 @@ contract TestMetaMorphoSnippets is IntegrationTest {
         _setCap(allMarkets[0], CAP);
         _setCap(allMarkets[1], CAP);
         _setCap(allMarkets[2], CAP);
+    }
+
+    function _generatePendingInterest(
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 blocks,
+        uint256 fee,
+        MarketParams memory marketParams
+    ) internal {
+        amountSupplied = bound(amountSupplied, 1e12, MAX_TEST_ASSETS);
+        amountBorrowed = bound(amountBorrowed, amountSupplied / 2, amountSupplied);
+        blocks = _boundBlocks(blocks);
+        fee = bound(fee, 0, MAX_FEE);
+        Id idMarket = Id(marketParams.id());
+        vm.startPrank(MORPHO_OWNER);
+        if (fee != morpho.fee(idMarket)) {
+            morpho.setFee(marketParams, fee);
+        }
+        vm.stopPrank();
+
+        loanToken.setBalance(SUPPLIER, amountSupplied);
+        vm.prank(SUPPLIER);
+        morpho.supply(marketParams, amountSupplied, 0, SUPPLIER, hex"");
+
+        uint256 collateralPrice = IOracle(marketParams.oracle).price();
+        uint256 amountCollateral =
+            amountBorrowed.wDivUp(marketParams.lltv).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
+        collateralToken.setBalance(BORROWER, amountCollateral);
+
+        vm.startPrank(BORROWER);
+        morpho.supplyCollateral(marketParams, amountCollateral, BORROWER, hex"");
+        morpho.borrow(marketParams, amountBorrowed, 0, BORROWER, BORROWER);
+        vm.stopPrank();
+
+        _forward(blocks);
     }
 }
