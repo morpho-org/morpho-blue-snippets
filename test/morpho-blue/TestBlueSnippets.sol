@@ -211,6 +211,69 @@ contract TestIntegrationSnippets is BaseTest {
         assertEq(actualHF, type(uint256).max);
     }
 
+    function testVirtualRepaymentHealthFactor(
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 timeElapsed,
+        uint256 fee,
+        uint256 repaymentAmount
+    ) public {
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
+        morpho.accrueInterest(marketParams);
+
+        uint256 currentHF = snippets.userHealthFactor(marketParams, id, BORROWER);
+        uint256 virtualHF = snippets.userHealthFactorAfterVirtualRepayment(marketParams, id, BORROWER, repaymentAmount);
+
+        assertGe(virtualHF, currentHF, "Virtual HF should be greater than or equal to current HF after repayment");
+    }
+
+    function testVirtualBorrowHealthFactor(
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 timeElapsed,
+        uint256 fee,
+        uint256 borrowAmount
+    ) public {
+        borrowAmount = bound(borrowAmount, MIN_TEST_AMOUNT, MAX_TEST_AMOUNT/2);
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
+        morpho.accrueInterest(marketParams);
+
+        uint256 currentHF = snippets.userHealthFactor(marketParams, id, BORROWER);
+        uint256 virtualHF = snippets.userHealthFactorAfterVirtualBorrow(marketParams, id, BORROWER, borrowAmount);
+
+        assertLe(virtualHF, currentHF, "Virtual HF should be less than or equal to current HF after borrowing");
+    }
+
+    function testVirtualRepaymentFullRepay(
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 timeElapsed,
+        uint256 fee
+    ) public {
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
+        morpho.accrueInterest(marketParams);
+
+        uint256 borrowed = morpho.expectedBorrowAssets(marketParams, BORROWER);
+        uint256 virtualHF = snippets.userHealthFactorAfterVirtualRepayment(marketParams, id, BORROWER, borrowed);
+
+        assertEq(virtualHF, type(uint256).max, "Virtual HF should be max when repaying full amount");
+    }
+
+    function testVirtualBorrowZeroAmount(
+        uint256 amountSupplied,
+        uint256 amountBorrowed,
+        uint256 timeElapsed,
+        uint256 fee
+    ) public {
+        _generatePendingInterest(amountSupplied, amountBorrowed, timeElapsed, fee);
+        morpho.accrueInterest(marketParams);
+
+        uint256 currentHF = snippets.userHealthFactor(marketParams, id, BORROWER);
+        uint256 virtualHF = snippets.userHealthFactorAfterVirtualBorrow(marketParams, id, BORROWER, 0);
+
+        assertEq(virtualHF, currentHF, "Virtual HF should equal current HF when borrowing zero");
+    }
+
     // ---- Test Managing Functions ----
 
     function testSupplyAssets(uint256 amount) public {
