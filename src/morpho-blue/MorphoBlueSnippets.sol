@@ -146,54 +146,6 @@ contract MorphoBlueSnippets {
         healthFactor = maxBorrow.wDivDown(borrowed);
     }
 
-    /// @notice Calculates the health factor of a user after a virtual repayment.
-    /// @param marketParams The parameters of the market.
-    /// @param id The identifier of the market.
-    /// @param user The address of the user whose health factor is being calculated.
-    /// @param repaymentAmount The amount of assets to be virtually repaid.
-    /// @return healthFactor The calculated health factor after the virtual repayment.
-    function userHealthFactorAfterVirtualRepayment(
-        MarketParams memory marketParams,
-        Id id,
-        address user,
-        uint256 repaymentAmount
-    ) public view returns (uint256 healthFactor) {
-        uint256 collateralPrice = IOracle(marketParams.oracle).price();
-        uint256 collateral = morpho.collateral(id, user);
-        uint256 borrowed = morpho.expectedBorrowAssets(marketParams, user);
-
-        // Ensure repaymentAmount doesn't exceed the borrowed amount
-        uint256 newBorrowed = borrowed > repaymentAmount ? borrowed - repaymentAmount : 0;
-
-        uint256 maxBorrow = collateral.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE).wMulDown(marketParams.lltv);
-
-        return newBorrowed == 0 ? type(uint256).max : maxBorrow.wDivDown(newBorrowed);
-    }
-
-    /// @notice Calculates the health factor of a user after a virtual borrow.
-    /// @param marketParams The parameters of the market.
-    /// @param id The identifier of the market.
-    /// @param user The address of the user whose health factor is being calculated.
-    /// @param borrowAmount The amount of assets to be virtually borrowed.
-    /// @return healthFactor The calculated health factor after the virtual borrow.
-    function userHealthFactorAfterVirtualBorrow(
-        MarketParams memory marketParams,
-        Id id,
-        address user,
-        uint256 borrowAmount
-    ) public view returns (uint256 healthFactor) {
-        uint256 collateralPrice = IOracle(marketParams.oracle).price();
-        uint256 collateral = morpho.collateral(id, user);
-        uint256 borrowed = morpho.expectedBorrowAssets(marketParams, user);
-
-        // Prevent overflow
-        uint256 newBorrowed = borrowed + borrowAmount;
-        require(newBorrowed >= borrowed, "Borrow amount overflow");
-
-        uint256 maxBorrow = collateral.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE).wMulDown(marketParams.lltv);
-
-        return newBorrowed == 0 ? type(uint256).max : maxBorrow.wDivDown(newBorrowed);
-    }
     // ---- MANAGING FUNCTIONS ----
 
     /// @notice Handles the supply of assets by the caller to a specific market.
