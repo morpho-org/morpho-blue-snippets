@@ -65,7 +65,7 @@ contract VirtualHealthFactorSnippets {
         Id id,
         address user,
         uint256 repaymentAmount
-    ) public view returns (uint256 healthFactor) {
+    ) public view returns (uint256) {
         uint256 collateralPrice = IOracle(marketParams.oracle).price();
         uint256 collateral = morpho.collateral(id, user);
         uint256 borrowed = morpho.expectedBorrowAssets(marketParams, user);
