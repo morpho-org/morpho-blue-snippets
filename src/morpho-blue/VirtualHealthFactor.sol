@@ -60,7 +60,7 @@ contract VirtualHealthFactorSnippets {
     /// @param user The address of the user whose health factor is being calculated.
     /// @param repaymentAmount The amount of assets to be virtually repaid.
     /// @return healthFactor The calculated health factor after the virtual repayment.
-    function userHealthFactorAfterVirtualRepayment(
+    function userHypotheticalHealthFactor(
         MarketParams memory marketParams,
         Id id,
         address user,
