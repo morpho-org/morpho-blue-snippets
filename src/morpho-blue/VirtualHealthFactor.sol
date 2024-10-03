@@ -42,7 +42,7 @@ contract VirtualHealthFactorSnippets {
     function userHealthFactor(MarketParams memory marketParams, Id id, address user)
         public
         view
-        returns (uint256 healthFactor)
+        returns (uint256)
     {
         uint256 collateralPrice = IOracle(marketParams.oracle).price();
         uint256 collateral = morpho.collateral(id, user);
