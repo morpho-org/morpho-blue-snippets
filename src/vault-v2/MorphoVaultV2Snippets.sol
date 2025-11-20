@@ -3,36 +3,39 @@ pragma solidity ^0.8.0;
 
 import {IVaultV2, Caps} from "../../lib/vault-v2/src/interfaces/IVaultV2.sol";
 import {IAdapter} from "../../lib/vault-v2/src/interfaces/IAdapter.sol";
+import {IMorphoVaultV1Adapter} from "../../lib/vault-v2/src/adapters/interfaces/IMorphoVaultV1Adapter.sol";
+import {IMetaMorpho, MarketAllocation} from "../../lib/vault-v2/lib/metamorpho/src/interfaces/IMetaMorpho.sol";
 import {IERC20} from "../../lib/vault-v2/src/interfaces/IERC20.sol";
-import {IMorphoMarketV1Adapter} from "../../lib/vault-v2/src/adapters/interfaces/IMorphoMarketV1Adapter.sol";
-
-import {Id, IMorpho, Market, MarketParams} from "../../lib/vault-v2/lib/morpho-blue/src/interfaces/IMorpho.sol";
-import {IIrm} from "../../lib/vault-v2/lib/morpho-blue/src/interfaces/IIrm.sol";
-import {SharesMathLib} from "../../lib/vault-v2/lib/morpho-blue/src/libraries/SharesMathLib.sol";
-import {MorphoLib} from "../../lib/vault-v2/lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
-import {MorphoBalancesLib} from "../../lib/vault-v2/lib/morpho-blue/src/libraries/periphery/MorphoBalancesLib.sol";
-import {MathLib, WAD} from "../../lib/vault-v2/lib/morpho-blue/src/libraries/MathLib.sol";
-import {MarketParamsLib} from "../../lib/vault-v2/lib/morpho-blue/src/libraries/MarketParamsLib.sol";
+import {MarketParamsLib} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-blue/src/libraries/MarketParamsLib.sol";
+import {Id, IMorpho, Market, MarketParams} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-blue/src/interfaces/IMorpho.sol";
+import {SharesMathLib} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-blue/src/libraries/SharesMathLib.sol";
+import {MathLib, WAD} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-blue/src/libraries/MathLib.sol";
+import {UtilsLib} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-blue/src/libraries/UtilsLib.sol";
+import {IIrm} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-blue/src/interfaces/IIrm.sol";
+import {MorphoLib} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-blue/src/libraries/periphery/MorphoLib.sol";
+import {MorphoBalancesLib} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-blue/src/libraries/periphery/MorphoBalancesLib.sol";
 
 import {Math} from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /// @title MorphoVaultV2Snippets
 /// @notice Snippets contract for interacting with Morpho VaultV2.
+/// @dev Make sure to read this natspec before proceeding https://github.com/morpho-org/vault-v2/blob/main/src/VaultV2.sol#L16.
 /// @dev VaultV2 uses an adapter-based architecture where allocators deploy capital to various adapters.
 /// @dev Each adapter can invest in underlying markets and report their real asset values back to the vault.
 /// @dev The vault tracks allocations per ID, which can be shared across multiple adapters to cap exposure.
 contract MorphoVaultV2Snippets {
-    using Math for uint256;
     using SharesMathLib for uint256;
     using MathLib for uint256;
+    using Math for uint256;
     using MarketParamsLib for MarketParams;
     using MorphoLib for IMorpho;
     using MorphoBalancesLib for IMorpho;
+    using UtilsLib for uint256;
 
     IMorpho public immutable morpho;
 
     constructor(address morphoAddress) {
-        require(morphoAddress != address(0), "morpho address cannot be zero");
+        require(morphoAddress != address(0), "Morpho address cannot be 0");
         morpho = IMorpho(morphoAddress);
     }
 
@@ -43,7 +46,7 @@ contract MorphoVaultV2Snippets {
     /// @dev The value is computed by accruing interest and aggregating adapter positions.
     /// @param vault The address of the VaultV2 vault.
     /// @return totalAssets The total assets controlled by the vault.
-    function totalDepositVault(address vault) public view returns (uint256 totalAssets) {
+    function totalDepositVaultV2(address vault) public view returns (uint256 totalAssets) {
         totalAssets = IVaultV2(vault).totalAssets();
     }
 
@@ -52,28 +55,25 @@ contract MorphoVaultV2Snippets {
     /// @param vault The address of the VaultV2 vault.
     /// @param user The address of the user.
     /// @return totalSharesUser The total shares owned by the user.
-    function totalSharesUserVault(address vault, address user) public view returns (uint256 totalSharesUser) {
+    function totalSharesUserVaultV2(address vault, address user) public view returns (uint256 totalSharesUser) {
         totalSharesUser = IVaultV2(vault).balanceOf(user);
     }
 
     /// @notice Returns the current share price of the VaultV2 `vault`.
-    /// @dev Share price is calculated as totalAssets per share, including virtual shares.
+    /// @dev Share price is calculated using the vault's native convertToAssets function.
     /// @param vault The address of the VaultV2 vault.
-    /// @return sharePrice The current share price (in asset terms per share).
-    function sharePriceVault(address vault) public view returns (uint256 sharePrice) {
-        uint256 totalAssets = IVaultV2(vault).totalAssets();
-        uint256 totalSupply = IVaultV2(vault).totalSupply();
-        uint256 virtualShares = IVaultV2(vault).virtualShares();
-
-        if (totalSupply + virtualShares == 0) return 0;
-        sharePrice = (totalAssets + 1).mulDiv(1e18, totalSupply + virtualShares);
+    /// @return sharePrice The current share price (assets returned per share unit).
+    function sharePriceVaultV2(address vault) public view returns (uint256 sharePrice) {
+        uint256 vaultDecimals = IVaultV2(vault).decimals();
+        uint256 oneShare = 10 ** vaultDecimals;
+        sharePrice = IVaultV2(vault).convertToAssets(oneShare);
     }
 
     /// @notice Returns the list of all adapters registered in a VaultV2 `vault`.
     /// @dev Adapters are contracts that allocate vault assets to underlying markets.
     /// @param vault The address of the VaultV2 vault.
     /// @return adaptersList An array of adapter addresses.
-    function adaptersListVault(address vault) public view returns (address[] memory adaptersList) {
+    function adaptersListVaultV2(address vault) public view returns (address[] memory adaptersList) {
         uint256 length = IVaultV2(vault).adaptersLength();
         adaptersList = new address[](length);
 
@@ -128,19 +128,31 @@ contract MorphoVaultV2Snippets {
         });
     }
 
-    /// @notice Returns the real assets held by a specific `adapter`.
-    /// @dev This queries the adapter directly to get the current value of its investments.
-    /// @param adapter The address of the adapter.
-    /// @return realAssets The current value of assets managed by the adapter.
-    function realAssetsAdapter(address adapter) public view returns (uint256 realAssets) {
-        realAssets = IAdapter(adapter).realAssets();
+    /// @notice Returns the real assets held by all adapters in a VaultV2 `vault`.
+    /// @dev This queries each adapter to get the current value of its investments.
+    /// @param vault The address of the VaultV2 vault.
+    /// @return adaptersList An array of adapter addresses.
+    /// @return realAssetsList An array of real assets corresponding to each adapter.
+    function realAssetsPerAdapter(address vault)
+        public
+        view
+        returns (address[] memory adaptersList, uint256[] memory realAssetsList)
+    {
+        uint256 length = IVaultV2(vault).adaptersLength();
+        adaptersList = new address[](length);
+        realAssetsList = new uint256[](length);
+
+        for (uint256 i; i < length; ++i) {
+            adaptersList[i] = IVaultV2(vault).adapters(i);
+            realAssetsList[i] = IAdapter(adaptersList[i]).realAssets();
+        }
     }
 
     /// @notice Returns the idle assets (not allocated to any adapter) in a VaultV2 `vault`.
     /// @dev Idle assets are held directly by the vault contract and available for immediate withdrawal.
     /// @param vault The address of the VaultV2 vault.
     /// @return idleAssets The amount of idle assets in the vault.
-    function idleAssetsVault(address vault) public view returns (uint256 idleAssets) {
+    function idleAssetsVaultV2(address vault) public view returns (uint256 idleAssets) {
         address asset = IVaultV2(vault).asset();
         idleAssets = IERC20(asset).balanceOf(vault);
     }
@@ -152,7 +164,7 @@ contract MorphoVaultV2Snippets {
     /// @return performanceFee The performance fee (in WAD, 1e18 = 100%).
     /// @return managementFee The management fee (in WAD, annualized).
     /// @return maxRate The maximum rate of increase for total assets (in WAD per second).
-    function feeInfoVault(address vault)
+    function feeInfoVaultV2(address vault)
         public
         view
         returns (uint96 performanceFee, uint96 managementFee, uint64 maxRate)
@@ -167,7 +179,7 @@ contract MorphoVaultV2Snippets {
     /// @param vault The address of the VaultV2 vault.
     /// @return liquidityAdapter The address of the liquidity adapter.
     /// @return liquidityData The data passed to the liquidity adapter on allocate/deallocate.
-    function liquidityAdapterVault(address vault)
+    function liquidityAdapterVaultV2(address vault)
         public
         view
         returns (address liquidityAdapter, bytes memory liquidityData)
@@ -195,7 +207,7 @@ contract MorphoVaultV2Snippets {
     /// @param vault The address of the VaultV2 vault.
     /// @param assets The amount of assets to deposit.
     /// @return shares The amount of shares that would be minted.
-    function previewDepositVault(address vault, uint256 assets) public view returns (uint256 shares) {
+    function previewDepositVaultV2(address vault, uint256 assets) public view returns (uint256 shares) {
         shares = IVaultV2(vault).previewDeposit(assets);
     }
 
@@ -204,7 +216,7 @@ contract MorphoVaultV2Snippets {
     /// @param vault The address of the VaultV2 vault.
     /// @param shares The amount of shares to mint.
     /// @return assets The amount of assets needed.
-    function previewMintVault(address vault, uint256 shares) public view returns (uint256 assets) {
+    function previewMintVaultV2(address vault, uint256 shares) public view returns (uint256 assets) {
         assets = IVaultV2(vault).previewMint(shares);
     }
 
@@ -213,7 +225,7 @@ contract MorphoVaultV2Snippets {
     /// @param vault The address of the VaultV2 vault.
     /// @param assets The amount of assets to withdraw.
     /// @return shares The amount of shares that would be burned.
-    function previewWithdrawVault(address vault, uint256 assets) public view returns (uint256 shares) {
+    function previewWithdrawVaultV2(address vault, uint256 assets) public view returns (uint256 shares) {
         shares = IVaultV2(vault).previewWithdraw(assets);
     }
 
@@ -222,50 +234,8 @@ contract MorphoVaultV2Snippets {
     /// @param vault The address of the VaultV2 vault.
     /// @param shares The amount of shares to redeem.
     /// @return assets The amount of assets that would be withdrawn.
-    function previewRedeemVault(address vault, uint256 shares) public view returns (uint256 assets) {
+    function previewRedeemVaultV2(address vault, uint256 shares) public view returns (uint256 assets) {
         assets = IVaultV2(vault).previewRedeem(shares);
-    }
-
-    /// @notice Returns the total assets held by a specific `adapter`.
-    /// @dev This is equivalent to vaultAssetsInMarket for MetaMorpho, showing allocation per adapter.
-    /// @param adapter The address of the adapter.
-    /// @return assets The total assets managed by this adapter.
-    function vaultAssetsInAdapter(address adapter) public view returns (uint256 assets) {
-        assets = IAdapter(adapter).realAssets();
-    }
-
-    /// @notice Returns the list of markets that a Morpho Market adapter is allocated to.
-    /// @dev Only works with IMorphoMarketV1Adapter adapters.
-    /// @param adapter The address of the Morpho Market adapter.
-    /// @return marketsList An array of MarketParams structs representing all markets this adapter allocates to.
-    function adapterMarketsList(address adapter) public view returns (MarketParams[] memory marketsList) {
-        uint256 length = IMorphoMarketV1Adapter(adapter).marketParamsListLength();
-        marketsList = new MarketParams[](length);
-
-        for (uint256 i; i < length; ++i) {
-            (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
-                IMorphoMarketV1Adapter(adapter).marketParamsList(i);
-            marketsList[i] = MarketParams({
-                loanToken: loanToken,
-                collateralToken: collateralToken,
-                oracle: oracle,
-                irm: irm,
-                lltv: lltv
-            });
-        }
-    }
-
-    /// @notice Returns the allocation for a specific market within a Morpho Market adapter.
-    /// @dev Shows how much of the adapter's assets are allocated to this specific market.
-    /// @param adapter The address of the Morpho Market adapter.
-    /// @param marketParams The market parameters to query.
-    /// @return allocation The allocation for this market within the adapter.
-    function adapterAllocationInMarket(address adapter, MarketParams memory marketParams)
-        public
-        view
-        returns (uint256 allocation)
-    {
-        allocation = IMorphoMarketV1Adapter(adapter).allocation(marketParams);
     }
 
     /// @notice Returns the effective cap for a specific `id` in a VaultV2 `vault`.
@@ -284,12 +254,22 @@ contract MorphoVaultV2Snippets {
         effectiveCap = Math.min(absoluteCap, relativeCapInAssets);
     }
 
-    /// @notice Returns the current supply APY of a Morpho Blue market.
-    /// @dev This is the same calculation as in MetaMorphoSnippets for consistency.
+
+    /// @notice Returns the total assets supplied into a specific morpho blue market by a MetaMorpho `vault`.
+    /// @param vault The address of the MetaMorpho vault.
+    /// @param marketParams The morpho blue market.
+    function vaultAssetsInMarket(address vault, MarketParams memory marketParams)
+        public
+        view
+        returns (uint256 assets)
+    {
+        assets = morpho.expectedSupplyAssets(marketParams, vault);
+    }
+
+    /// @notice Returns the current APY of a Morpho Blue market.
     /// @param marketParams The morpho blue market parameters.
     /// @param market The morpho blue market state.
-    /// @return supplyApy The annualized supply APY (in WAD, 1e18 = 100%).
-    function supplyAPYMarket(MarketParams memory marketParams, Market memory market)
+    function supplyAPYMarketV1(MarketParams memory marketParams, Market memory market)
         public
         view
         returns (uint256 supplyApy)
@@ -305,51 +285,40 @@ contract MorphoVaultV2Snippets {
         (uint256 totalSupplyAssets,, uint256 totalBorrowAssets,) = morpho.expectedMarketBalances(marketParams);
 
         // Get the supply rate
-        uint256 utilization = (totalBorrowAssets == 0 || totalSupplyAssets == 0) ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
+        uint256 utilization = totalBorrowAssets == 0 ? 0 : totalBorrowAssets.wDivUp(totalSupplyAssets);
 
-        supplyApy = borrowRate.wMulDown(WAD - market.fee).wMulDown(utilization);
+        supplyApy = borrowRate.wMulDown(1 ether - market.fee).wMulDown(utilization);
     }
 
-    /// @notice Returns the current supply APY of a Morpho Market adapter.
-    /// @dev This is calculated as the weighted average APY across all markets the adapter is allocated to.
-    /// @param adapter The address of the Morpho Market adapter.
-    /// @return avgSupplyApy The weighted average supply APY of the adapter (in WAD, 1e18 = 100%).
-    function supplyAPYAdapter(address adapter) public view returns (uint256 avgSupplyApy) {
-        uint256 totalAdapterAssets = IAdapter(adapter).realAssets();
-        if (totalAdapterAssets == 0) return 0;
+    /// @notice Returns the current APY of a MetaMorpho vault.
+    /// @dev It is computed as the sum of all APY of enabled markets weighted by the supply on these markets.
+    /// @param vault The address of the MetaMorpho vault.
+    function supplyAPYVaultV1(address vault) public view returns (uint256 avgSupplyApy) {
+        uint256 ratio;
+        uint256 queueLength = IMetaMorpho(vault).withdrawQueueLength();
 
-        uint256 length = IMorphoMarketV1Adapter(adapter).marketParamsListLength();
-        uint256 weightedSum;
+        uint256 totalAmount = IMetaMorpho(vault).totalAssets();
+        if (totalAmount == 0) return 0;
 
-        for (uint256 i; i < length; ++i) {
-            (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
-                IMorphoMarketV1Adapter(adapter).marketParamsList(i);
+        for (uint256 i; i < queueLength; ++i) {
+            Id idMarket = IMetaMorpho(vault).withdrawQueue(i);
 
-            MarketParams memory marketParams = MarketParams({
-                loanToken: loanToken,
-                collateralToken: collateralToken,
-                oracle: oracle,
-                irm: irm,
-                lltv: lltv
-            });
+            MarketParams memory marketParams = morpho.idToMarketParams(idMarket);
+            Market memory market = morpho.market(idMarket);
 
-            Id marketId = marketParams.id();
-            Market memory market = morpho.market(marketId);
-
-            uint256 marketAllocation = IMorphoMarketV1Adapter(adapter).allocation(marketParams);
-            uint256 currentSupplyAPY = supplyAPYMarket(marketParams, market);
-
-            weightedSum += currentSupplyAPY.wMulDown(marketAllocation);
+            uint256 currentSupplyAPY = supplyAPYMarketV1(marketParams, market);
+            uint256 vaultAsset = vaultAssetsInMarket(vault, marketParams);
+            ratio += currentSupplyAPY.wMulDown(vaultAsset);
         }
 
-        avgSupplyApy = weightedSum.mulDivDown(WAD, totalAdapterAssets);
+        avgSupplyApy = ratio.mulDivDown(WAD - IMetaMorpho(vault).fee(), totalAmount);
     }
-
-    /// @notice Returns the current supply APY of a VaultV2 vault.
-    /// @dev This is calculated as the weighted average APY across all adapters, accounting for fees.
-    /// @dev Only works with Morpho Market adapters. For other adapter types, their contribution is skipped.
+     /// @notice Returns the current supply APY of a VaultV2 vault.
+    /// @dev This is calculated as the weighted average APY across all adapters, accounting for fees and maxRate cap.
+    /// @dev Only works with Morpho Vault V1 adapters (MetaMorpho). For other adapter types, their contribution is skipped.
+    /// @dev The gross APY is capped by the annualized maxRate, then performance fee is applied, and management fee is subtracted.
     /// @param vault The address of the VaultV2 vault.
-    /// @return avgSupplyApy The weighted average supply APY of the vault after fees (in WAD, 1e18 = 100%).
+    /// @return avgSupplyApy The weighted average supply APY of the vault after all fees and caps (in WAD, 1e18 = 100%).
     function supplyAPYVaultV2(address vault) public view returns (uint256 avgSupplyApy) {
         uint256 totalAssets = IVaultV2(vault).totalAssets();
         if (totalAssets == 0) return 0;
@@ -360,20 +329,45 @@ contract MorphoVaultV2Snippets {
         for (uint256 i; i < adapterCount; ++i) {
             address adapter = IVaultV2(vault).adapters(i);
 
-            // Try to treat as Morpho Market adapter
-            try IMorphoMarketV1Adapter(adapter).marketParamsListLength() returns (uint256) {
-                uint256 adapterAssets = IAdapter(adapter).realAssets();
-                uint256 adapterAPY = supplyAPYAdapter(adapter);
-                weightedSum += adapterAPY.wMulDown(adapterAssets);
+            // Try to detect if this is a Morpho Vault V1 Adapter
+            try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address vaultV1) {
+                // Get the real assets in this adapter
+                uint256 adapterRealAssets = IAdapter(adapter).realAssets();
+
+                // Calculate the APY of the underlying Morpho Vault V1
+                uint256 vaultV1APY = supplyAPYVaultV1(vaultV1);
+
+                // Weight by the adapter's real assets
+                weightedSum += vaultV1APY.wMulDown(adapterRealAssets);
             } catch {
-                // If not a Morpho Market adapter, skip (could be other adapter type)
+                // If not a Morpho Vault V1 Adapter, skip for now
+                // TODO: add support for Morpho Market adapters
                 continue;
             }
         }
 
-        // Apply performance fee (performance fee is taken on the yield)
+        // Calculate the gross APY (weighted by total assets)
+        uint256 grossAPY = weightedSum.mulDivDown(WAD, totalAssets);
+
+        // Cap the gross APY at the annualized maxRate
+        // maxRate is a per-second rate, so we annualize it by multiplying by seconds in a year
+        uint64 maxRate = IVaultV2(vault).maxRate();
+        uint256 annualizedMaxRate = uint256(maxRate) * 365 days;
+        uint256 cappedAPY = Math.min(grossAPY, annualizedMaxRate);
+
+        // Apply performance fee (performance fee is taken on the capped yield)
         uint96 performanceFee = IVaultV2(vault).performanceFee();
-        avgSupplyApy = weightedSum.mulDivDown(WAD - performanceFee, totalAssets);
+        uint256 apyAfterPerformanceFee = cappedAPY.mulDivDown(WAD - performanceFee, WAD);
+
+        // Apply management fee (annualized rate that reduces the net APY)
+        // Management fee is stored as a per-second rate, so we multiply by seconds in a year
+        uint96 managementFee = IVaultV2(vault).managementFee();
+        uint256 annualManagementFee = uint256(managementFee) * 365 days;
+
+        // Net APY = APY after performance fee - annual management fee
+        avgSupplyApy = apyAfterPerformanceFee >= annualManagementFee
+            ? apyAfterPerformanceFee - annualManagementFee
+            : 0;
     }
 
     // --- MANAGING FUNCTIONS ---
@@ -386,11 +380,11 @@ contract MorphoVaultV2Snippets {
     /// @param assets The amount of assets to deposit.
     /// @param onBehalf The address that will receive the minted shares.
     /// @return shares The amount of shares minted.
-    function depositInVault(address vault, uint256 assets, address onBehalf) public returns (uint256 shares) {
+    function depositInVaultV2(address vault, uint256 assets, address onBehalf) public returns (uint256 shares) {
         address asset = IVaultV2(vault).asset();
         IERC20(asset).transferFrom(msg.sender, address(this), assets);
 
-        _approveMaxVault(vault);
+        _approveMaxVaultV2(vault);
 
         shares = IVaultV2(vault).deposit(assets, onBehalf);
     }
@@ -403,13 +397,13 @@ contract MorphoVaultV2Snippets {
     /// @param shares The exact amount of shares to mint.
     /// @param onBehalf The address that will receive the minted shares.
     /// @return assets The amount of assets deposited.
-    function mintInVault(address vault, uint256 shares, address onBehalf) public returns (uint256 assets) {
+    function mintInVaultV2(address vault, uint256 shares, address onBehalf) public returns (uint256 assets) {
         assets = IVaultV2(vault).previewMint(shares);
 
         address asset = IVaultV2(vault).asset();
         IERC20(asset).transferFrom(msg.sender, address(this), assets);
 
-        _approveMaxVault(vault);
+        _approveMaxVaultV2(vault);
 
         IVaultV2(vault).mint(shares, onBehalf);
     }
@@ -423,7 +417,7 @@ contract MorphoVaultV2Snippets {
     /// @param receiver The address that will receive the withdrawn assets.
     /// @param owner The address that owns the shares being redeemed.
     /// @return shares The amount of shares burned.
-    function withdrawFromVault(address vault, uint256 assets, address receiver, address owner)
+    function withdrawFromVaultV2(address vault, uint256 assets, address receiver, address owner)
         public
         returns (uint256 shares)
     {
@@ -439,7 +433,7 @@ contract MorphoVaultV2Snippets {
     /// @param receiver The address that will receive the withdrawn assets.
     /// @param owner The address that owns the shares being redeemed.
     /// @return assets The amount of assets withdrawn.
-    function redeemFromVault(address vault, uint256 shares, address receiver, address owner)
+    function redeemFromVaultV2(address vault, uint256 shares, address receiver, address owner)
         public
         returns (uint256 assets)
     {
@@ -453,7 +447,7 @@ contract MorphoVaultV2Snippets {
     /// @param vault The address of the VaultV2 vault.
     /// @param receiver The address that will receive the withdrawn assets.
     /// @return assets The amount of assets withdrawn.
-    function redeemAllFromVault(address vault, address receiver) public returns (uint256 assets) {
+    function redeemAllFromVaultV2(address vault, address receiver) public returns (uint256 assets) {
         uint256 shares = IVaultV2(vault).balanceOf(msg.sender);
         assets = IVaultV2(vault).redeem(shares, receiver, msg.sender);
     }
@@ -462,7 +456,7 @@ contract MorphoVaultV2Snippets {
     /// @dev Interest is accrued based on adapter reported values and is capped by the maxRate.
     /// @dev Performance fees are taken on interest, management fees are taken on total assets over time.
     /// @param vault The address of the VaultV2 vault.
-    function accrueInterestVault(address vault) public {
+    function accrueInterestVaultV2(address vault) public {
         IVaultV2(vault).accrueInterest();
     }
 
@@ -471,7 +465,7 @@ contract MorphoVaultV2Snippets {
     /// @notice Approves the vault to spend the maximum amount of the underlying asset if not already approved.
     /// @dev This is an internal helper to avoid repeated approvals.
     /// @param vault The address of the VaultV2 vault.
-    function _approveMaxVault(address vault) internal {
+    function _approveMaxVaultV2(address vault) internal {
         address asset = IVaultV2(vault).asset();
         if (IERC20(asset).allowance(address(this), vault) == 0) {
             IERC20(asset).approve(vault, type(uint256).max);

@@ -42,7 +42,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         vault.deposit(firstDeposit, ONBEHALF);
         vm.stopPrank();
 
-        assertEq(snippets.totalDepositVault(address(vault)), firstDeposit, "lastTotalAssets");
+        assertEq(snippets.totalDepositVaultV2(address(vault)), firstDeposit, "lastTotalAssets");
 
         deal(address(underlyingToken), SUPPLIER, secondDeposit);
         vm.startPrank(SUPPLIER);
@@ -50,7 +50,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         vault.deposit(secondDeposit, ONBEHALF);
         vm.stopPrank();
 
-        assertEq(snippets.totalDepositVault(address(vault)), firstDeposit + secondDeposit, "lastTotalAssets2");
+        assertEq(snippets.totalDepositVaultV2(address(vault)), firstDeposit + secondDeposit, "lastTotalAssets2");
     }
 
     function testTotalSharesUserVault(uint256 deposited) public {
@@ -64,7 +64,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         vm.stopPrank();
 
         assertEq(vault.balanceOf(ONBEHALF), shares, "balanceOf(ONBEHALF)");
-        assertEq(snippets.totalSharesUserVault(address(vault), ONBEHALF), shares, "totalSharesUserVault");
+        assertEq(snippets.totalSharesUserVaultV2(address(vault), ONBEHALF), shares, "totalSharesUserVault");
     }
 
     function testSharePriceVault(uint256 deposited) public {
@@ -77,7 +77,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         vault.deposit(deposited, ONBEHALF);
         vm.stopPrank();
 
-        uint256 sharePrice = snippets.sharePriceVault(address(vault));
+        uint256 sharePrice = snippets.sharePriceVaultV2(address(vault));
         assertGt(sharePrice, 0, "sharePrice should be > 0");
 
         // Share price should be approximately 1e18 initially (1:1 ratio with some virtual shares)
@@ -94,7 +94,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         vault.deposit(deposited, ONBEHALF);
         vm.stopPrank();
 
-        uint256 idleAssets = snippets.idleAssetsVault(address(vault));
+        uint256 idleAssets = snippets.idleAssetsVaultV2(address(vault));
 
         // Initially, idle assets should be close to deposited amount (some might be allocated)
         // Since allocation happens automatically, idle assets could be less than deposited
@@ -104,7 +104,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
     function testPreviewDepositVault(uint256 assets) public {
         assets = bound(assets, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
 
-        uint256 previewShares = snippets.previewDepositVault(address(vault), assets);
+        uint256 previewShares = snippets.previewDepositVaultV2(address(vault), assets);
         assertGt(previewShares, 0, "previewShares should be > 0");
 
         // Actually deposit and verify the preview was accurate
@@ -128,7 +128,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         uint256 shares = vault.deposit(deposited, ONBEHALF);
         vm.stopPrank();
 
-        uint256 previewAssets = snippets.previewRedeemVault(address(vault), shares);
+        uint256 previewAssets = snippets.previewRedeemVaultV2(address(vault), shares);
         assertGt(previewAssets, 0, "previewAssets should be > 0");
 
         // Actually redeem and verify the preview was accurate
@@ -146,7 +146,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
 
         vm.startPrank(SUPPLIER);
         underlyingToken.approve(address(snippets), assets);
-        uint256 shares = snippets.depositInVault(address(vault), assets, SUPPLIER);
+        uint256 shares = snippets.depositInVaultV2(address(vault), assets, SUPPLIER);
         vm.stopPrank();
 
         assertGt(shares, 0, "shares should be > 0");
@@ -164,7 +164,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         vault.deposit(deposited, SUPPLIER);
 
         vault.approve(address(snippets), type(uint256).max);
-        uint256 assets = snippets.redeemAllFromVault(address(vault), SUPPLIER);
+        uint256 assets = snippets.redeemAllFromVaultV2(address(vault), SUPPLIER);
         vm.stopPrank();
 
         assertApproxEqAbs(assets, deposited, 1e6, "assets should ~= deposited");
@@ -184,7 +184,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         uint256 sharesBefore = vault.balanceOf(SUPPLIER);
 
         vault.approve(address(snippets), type(uint256).max);
-        uint256 shares = snippets.withdrawFromVault(address(vault), withdrawAmount, SUPPLIER, SUPPLIER);
+        uint256 shares = snippets.withdrawFromVaultV2(address(vault), withdrawAmount, SUPPLIER, SUPPLIER);
         vm.stopPrank();
 
         assertGt(shares, 0, "shares should be > 0");
@@ -192,7 +192,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
     }
 
     function testFeeInfoVault() public {
-        (uint96 performanceFee, uint96 managementFee, uint64 maxRate) = snippets.feeInfoVault(address(vault));
+        (uint96 performanceFee, uint96 managementFee, uint64 maxRate) = snippets.feeInfoVaultV2(address(vault));
 
         // Verify that the values match what's set in the vault
         assertEq(performanceFee, vault.performanceFee(), "performanceFee should match");
@@ -230,7 +230,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
 
         vm.startPrank(SUPPLIER);
         underlyingToken.approve(address(snippets), previewAssets);
-        uint256 assets = snippets.mintInVault(address(vault), shares, SUPPLIER);
+        uint256 assets = snippets.mintInVaultV2(address(vault), shares, SUPPLIER);
         vm.stopPrank();
 
         assertGt(assets, 0, "assets should be > 0");
@@ -250,7 +250,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         redeemShares = bound(redeemShares, shares / 4, shares / 2);
 
         vault.approve(address(snippets), type(uint256).max);
-        uint256 assets = snippets.redeemFromVault(address(vault), redeemShares, SUPPLIER, SUPPLIER);
+        uint256 assets = snippets.redeemFromVaultV2(address(vault), redeemShares, SUPPLIER, SUPPLIER);
         vm.stopPrank();
 
         assertGt(assets, 0, "assets should be > 0");
@@ -260,7 +260,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
     function testPreviewMintVault(uint256 shares) public {
         shares = bound(shares, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
 
-        uint256 previewAssets = snippets.previewMintVault(address(vault), shares);
+        uint256 previewAssets = snippets.previewMintVaultV2(address(vault), shares);
         assertGt(previewAssets, 0, "previewAssets should be > 0");
 
         // Actually mint and verify the preview was accurate
@@ -286,7 +286,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
 
         withdrawAmount = bound(withdrawAmount, MIN_TEST_ASSETS / 2, deposited);
 
-        uint256 previewShares = snippets.previewWithdrawVault(address(vault), withdrawAmount);
+        uint256 previewShares = snippets.previewWithdrawVaultV2(address(vault), withdrawAmount);
         assertGt(previewShares, 0, "previewShares should be > 0");
 
         // Actually withdraw and verify the preview was accurate
@@ -298,7 +298,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
     }
 
     function testAdaptersListVault() public {
-        address[] memory adaptersList = snippets.adaptersListVault(address(vault));
+        address[] memory adaptersList = snippets.adaptersListVaultV2(address(vault));
 
         // The vault should have adapters set up in the integration test base
         assertGt(adaptersList.length, 0, "vault should have at least one adapter");
@@ -310,7 +310,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
     }
 
     function testLiquidityAdapterVault() public {
-        (address liquidityAdapter, bytes memory liquidityData) = snippets.liquidityAdapterVault(address(vault));
+        (address liquidityAdapter, bytes memory liquidityData) = snippets.liquidityAdapterVaultV2(address(vault));
 
         // Verify the liquidity adapter matches vault's configuration
         assertEq(liquidityAdapter, vault.liquidityAdapter(), "liquidityAdapter should match");
@@ -373,33 +373,37 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         assertEq(caps.relativeCap, vault.relativeCap(id), "relativeCap should match");
     }
 
-    function testRealAssetsAdapter() public {
-        address adapter = vault.adapters(0);
+    function testRealAssetsPerAdapter() public {
+        (address[] memory adapters, uint256[] memory realAssetsList) =
+            snippets.realAssetsPerAdapter(address(vault));
 
-        uint256 realAssets = snippets.realAssetsAdapter(adapter);
+        // Should have at least one adapter
+        assertGt(adapters.length, 0, "should have at least one adapter");
+        assertEq(adapters.length, realAssetsList.length, "arrays should have same length");
 
-        // Initially should be 0 or small
-        assertGe(realAssets, 0, "realAssets should be >= 0");
+        // All adapters should be registered in vault
+        for (uint256 i = 0; i < adapters.length; i++) {
+            assertTrue(vault.isAdapter(adapters[i]), "adapter should be registered");
+            assertGe(realAssetsList[i], 0, "realAssets should be >= 0");
+        }
 
-        // After deposit, real assets might increase
+        // After deposit, total real assets might increase
         deal(address(underlyingToken), SUPPLIER, MIN_TEST_ASSETS);
         vm.startPrank(SUPPLIER);
         underlyingToken.approve(address(vault), MIN_TEST_ASSETS);
         vault.deposit(MIN_TEST_ASSETS, SUPPLIER);
         vm.stopPrank();
 
-        uint256 newRealAssets = snippets.realAssetsAdapter(adapter);
-        assertGe(newRealAssets, realAssets, "realAssets should be >= initial");
-    }
+        (, uint256[] memory newRealAssetsList) = snippets.realAssetsPerAdapter(address(vault));
 
-    function testVaultAssetsInAdapter() public {
-        address adapter = vault.adapters(0);
-
-        uint256 assetsInAdapter = snippets.vaultAssetsInAdapter(adapter);
-
-        // Should match realAssets
-        uint256 realAssets = snippets.realAssetsAdapter(adapter);
-        assertEq(assetsInAdapter, realAssets, "vaultAssetsInAdapter should equal realAssets");
+        // Total real assets should be >= initial
+        uint256 totalInitial;
+        uint256 totalNew;
+        for (uint256 i = 0; i < realAssetsList.length; i++) {
+            totalInitial += realAssetsList[i];
+            totalNew += newRealAssetsList[i];
+        }
+        assertGe(totalNew, totalInitial, "total realAssets should be >= initial");
     }
 
     function testEffectiveCapById() public {
@@ -434,11 +438,33 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         skip(1 days);
 
         // Call accrueInterest
-        snippets.accrueInterestVault(address(vault));
+        snippets.accrueInterestVaultV2(address(vault));
 
         uint256 totalAssetsAfter = vault.totalAssets();
 
         // Total assets should be >= before (interest accrued or stayed same)
         assertGe(totalAssetsAfter, totalAssetsBefore, "totalAssets should be >= before");
+    }
+
+    function testSupplyAPYVaultV2(uint256 deposited) public {
+        deposited = bound(deposited, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
+
+        // Deposit into the VaultV2
+        deal(address(underlyingToken), SUPPLIER, deposited);
+
+        vm.startPrank(SUPPLIER);
+        underlyingToken.approve(address(vault), deposited);
+        vault.deposit(deposited, SUPPLIER);
+        vm.stopPrank();
+
+        // Get the APY
+        uint256 apy = snippets.supplyAPYVaultV2(address(vault));
+
+        // APY should be >= 0
+        assertGe(apy, 0, "APY should be >= 0");
+
+        // If there are VaultV1 adapters with allocations, APY should be > 0
+        // (assuming the underlying markets have non-zero rates)
+        // This is a basic sanity check
     }
 }
