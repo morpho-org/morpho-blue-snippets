@@ -361,12 +361,14 @@ contract MorphoVaultV2Snippets {
 
         // Apply management fee (annualized rate that reduces the net APY)
         // Management fee is stored as a per-second rate, so we multiply by seconds in a year
+        // Management fee is applied to the total assets (1 + APY), not just the principal
         uint96 managementFee = IVaultV2(vault).managementFee();
         uint256 annualManagementFee = uint256(managementFee) * 365 days;
+        uint256 netAnnualManagementFee = (WAD + cappedAPY).mulDivDown(annualManagementFee, WAD);
 
-        // Net APY = APY after performance fee - annual management fee
-        avgSupplyApy = apyAfterPerformanceFee >= annualManagementFee
-            ? apyAfterPerformanceFee - annualManagementFee
+        // Net APY = APY after performance fee - net annual management fee
+        avgSupplyApy = apyAfterPerformanceFee >= netAnnualManagementFee
+            ? apyAfterPerformanceFee - netAnnualManagementFee
             : 0;
     }
 
