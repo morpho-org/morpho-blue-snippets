@@ -59,6 +59,44 @@ One can use the logic provided in the following:
 - `withdrawFromVaultAmount`
 - `redeemAllFromVault`
 
+## VaultV2 related functions in Solidity:
+
+One can use the logic provided in the following:
+
+1. Functions to get data:
+
+- `totalDepositVaultV2`
+- `totalSharesUserVaultV2`
+- `sharePriceVaultV2`
+- `adaptersListVaultV2`
+- `allocationById`
+- `absoluteCapById`
+- `relativeCapById`
+- `capsById`
+- `realAssetsPerAdapter`
+- `idleAssetsVaultV2`
+- `feeInfoVaultV2`
+- `liquidityAdapterVaultV2`
+- `accrueInterestView`
+- `previewDepositVaultV2`
+- `previewMintVaultV2`
+- `previewWithdrawVaultV2`
+- `previewRedeemVaultV2`
+- `effectiveCapById`
+- `supplyAPYVaultV2`
+
+2. Functions to modify state:
+
+- `depositInVaultV2`
+- `mintInVaultV2`
+- `withdrawFromVaultV2`
+- `redeemFromVaultV2`
+- `redeemAllFromVaultV2`
+- `accrueInterestVaultV2`
+
+> [!NOTE]
+> The VaultV2 snippets currently support Morpho Vault V1 adapters (MetaMorpho). Support for Morpho Market adapters is not yet implemented.
+
 ## Getting Started
 
 - Install [Foundry](https://book.getfoundry.sh/getting-started/installation)

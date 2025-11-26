@@ -51,7 +51,7 @@ contract VirtualHealthFactorSnippets {
         uint256 maxBorrow = collateral.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE).wMulDown(marketParams.lltv);
 
         if (borrowed == 0) return type(uint256).max;
-        healthFactor = maxBorrow.wDivDown(borrowed);
+        return maxBorrow.wDivDown(borrowed);
     }
 
     /// @notice Calculates the health factor of a user after a virtual repayment.
@@ -60,7 +60,7 @@ contract VirtualHealthFactorSnippets {
     /// @param user The address of the user whose health factor is being calculated.
     /// @param repaidAssets The amount of assets to be virtually repaid.
     /// @return healthFactor The calculated health factor after the virtual repayment.
-    function userHypotheticalHealthFactor(
+    function userHealthFactorAfterVirtualRepayment(
         MarketParams memory marketParams,
         Id id,
         address user,

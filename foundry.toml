@@ -1,7 +1,7 @@
 [profile.default]
 src = "src"
 test = "test"
-evm_version = "paris"
+evm_version = "cancun"
 fs_permissions = [
     { access = "read", path = "./config/"},
     { access = "read", path = "./out/"}
