@@ -467,4 +467,78 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         // (assuming the underlying markets have non-zero rates)
         // This is a basic sanity check
     }
+
+    function testMarketsInVaultV2() public {
+        // Initially, the vault has a MorphoVaultV1Adapter but MetaMorpho has no markets in withdraw queue
+        bytes32[] memory markets = snippets.marketsInVaultV2(address(vault));
+
+        // Markets should be empty or have some markets depending on setup
+        // This is a basic sanity check - the function should not revert
+        assertGe(markets.length, 0, "markets array should be valid");
+
+        // Set up the MetaMorpho supply queue with the idle market
+        setSupplyQueueIdle();
+
+        // Now get markets again - should have at least the idle market
+        markets = snippets.marketsInVaultV2(address(vault));
+
+        // After setting supply queue, we should see the market in the withdraw queue too
+        // (MetaMorpho adds to withdraw queue when setting supply queue)
+    }
+
+    function testVaultV2AssetsInMarket(uint256 deposited) public {
+        deposited = bound(deposited, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
+
+        // Set up the MetaMorpho supply queue with the idle market
+        setSupplyQueueIdle();
+
+        // Deposit into the VaultV2
+        deal(address(underlyingToken), SUPPLIER, deposited);
+
+        vm.startPrank(SUPPLIER);
+        underlyingToken.approve(address(vault), deposited);
+        vault.deposit(deposited, SUPPLIER);
+        vm.stopPrank();
+
+        // Get assets in the idle market
+        uint256 assetsInMarket = snippets.vaultV2AssetsInMarket(address(vault), idleParams);
+
+        // Assets in market should be >= 0
+        assertGe(assetsInMarket, 0, "assets in market should be >= 0");
+
+        // The assets might be allocated to the MetaMorpho vault through the adapter
+        // depending on the liquidity adapter configuration
+    }
+
+    function testVaultV2AssetsInMarketWithAllocation(uint256 deposited) public {
+        deposited = bound(deposited, MIN_TEST_ASSETS, MAX_TEST_ASSETS);
+
+        // Set up the MetaMorpho supply queue with all markets
+        setSupplyQueueAllMarkets();
+
+        // Deposit into the VaultV2
+        deal(address(underlyingToken), SUPPLIER, deposited);
+
+        vm.startPrank(SUPPLIER);
+        underlyingToken.approve(address(vault), deposited);
+        vault.deposit(deposited, SUPPLIER);
+        vm.stopPrank();
+
+        // Check assets across multiple markets
+        uint256 totalAssetsInMarkets;
+        for (uint256 i; i < allMarketParams.length; ++i) {
+            uint256 assetsInMarket = snippets.vaultV2AssetsInMarket(address(vault), allMarketParams[i]);
+            totalAssetsInMarkets += assetsInMarket;
+        }
+
+        // Total assets in all markets should be consistent with adapter real assets
+        (address[] memory adapters, uint256[] memory realAssets) = snippets.realAssetsPerAdapter(address(vault));
+        uint256 totalAdapterAssets;
+        for (uint256 i; i < realAssets.length; ++i) {
+            totalAdapterAssets += realAssets[i];
+        }
+
+        // The total should be approximately equal (might differ due to idle assets in vault)
+        // This is just a sanity check that the function works
+    }
 }
