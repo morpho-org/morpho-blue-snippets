@@ -445,9 +445,11 @@ contract MorphoVaultV2Snippets {
 
         avgSupplyApy = ratio.mulDivDown(WAD - IMetaMorpho(vault).fee(), totalAmount);
     }
-     /// @notice Returns the current supply APY of a VaultV2 vault.
+    /// @notice Returns the current supply APY of a VaultV2 vault.
     /// @dev This is calculated as the weighted average APY across all adapters, accounting for fees and maxRate cap.
-    /// @dev Only works with Morpho Vault V1 adapters (MetaMorpho). For other adapter types, their contribution is skipped.
+    /// @dev Supports MorphoVaultV1Adapter (underlying can be MetaMorpho V1 or VaultV2 via recursion)
+    ///      and MorphoMarketV1AdapterV2.
+    /// @dev Unknown adapter types are ignored.
     /// @dev The gross APY is capped by the annualized maxRate, then performance fee is applied, and management fee is subtracted.
     /// @param vault The address of the VaultV2 vault.
     /// @return avgSupplyApy The weighted average supply APY of the vault after all fees and caps (in WAD, 1e18 = 100%).
@@ -461,18 +463,24 @@ contract MorphoVaultV2Snippets {
         for (uint256 i; i < adapterCount; ++i) {
             address adapter = IVaultV2(vault).adapters(i);
 
-            // Try to detect if this is a Morpho Vault V1 Adapter
-            try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address vaultV1) {
-                // Get the real assets in this adapter
+            // Try MorphoVaultV1Adapter first (it can wrap MetaMorpho V1 or VaultV2).
+            try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlying) {
                 uint256 adapterRealAssets = IAdapter(adapter).realAssets();
+                if (adapterRealAssets == 0) continue;
 
-                // Calculate the APY of the underlying Morpho Vault V1
-                uint256 vaultV1APY = supplyAPYVaultV1(vaultV1);
+                uint256 underlyingAPY;
+                // Detect if underlying is a VaultV2 by probing a V2-specific function.
+                try IVaultV2(underlying).liquidityAdapter() {
+                    // VaultV2 → recurse (returns net APY after its own fees)
+                    underlyingAPY = supplyAPYVaultV2(underlying);
+                } catch {
+                    // MetaMorpho V1 → use V1 APY logic
+                    underlyingAPY = supplyAPYVaultV1(underlying);
+                }
 
-                // Weight by the adapter's real assets
-                weightedSum += vaultV1APY.wMulDown(adapterRealAssets);
+                weightedSum += underlyingAPY.wMulDown(adapterRealAssets);
             } catch {
-                // Try to detect if this is a Morpho Market V1 Adapter V2
+                // Try MorphoMarketV1AdapterV2.
                 try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
                     weightedSum += _supplyAPYMorphoMarketV1AdapterV2(adapter, marketCount);
                 } catch {

@@ -2,6 +2,11 @@
 src = "src"
 test = "test"
 evm_version = "cancun"
+via_ir = true
+optimizer = true
+optimizer_runs = 100000
+bytecode_hash = "none"
+unchecked_cheatcode_artifacts = true
 fs_permissions = [
     { access = "read", path = "./config/"},
     { access = "read", path = "./out/"}
@@ -17,14 +22,41 @@ wrap_comments = true
 
 
 [profile.build]
-via-ir = true
 test = "/dev/null"
 script = "/dev/null"
 
 
 [profile.test]
-via-ir = false
-
 fuzz.max_test_rejects = 100000
+
+[[profile.default.compilation_restrictions]]
+paths = "lib/vault-v2/lib/morpho-blue/src/Morpho.sol"
+optimizer_runs = 999999
+evm_version = "paris"
+
+[[profile.default.compilation_restrictions]]
+paths = "lib/morpho-blue/src/Morpho.sol"
+optimizer_runs = 999999
+evm_version = "paris"
+
+[[profile.default.compilation_restrictions]]
+paths = "lib/vault-v2/lib/morpho-blue-irm/src/adaptive-curve-irm/AdaptiveCurveIrm.sol"
+optimizer_runs = 999999
+evm_version = "paris"
+
+[[profile.default.compilation_restrictions]]
+paths = "lib/vault-v2/lib/metamorpho/src/MetaMorpho.sol"
+optimizer_runs = 200
+evm_version = "cancun"
+
+[[profile.default.additional_compiler_profiles]]
+name = "999999-paris"
+optimizer_runs = 999999
+evm_version = "paris"
+
+[[profile.default.additional_compiler_profiles]]
+name = "200-cancun"
+optimizer_runs = 200
+evm_version = "cancun"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
