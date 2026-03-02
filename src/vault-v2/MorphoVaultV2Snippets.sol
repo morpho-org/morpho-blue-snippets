@@ -257,9 +257,12 @@ contract MorphoVaultV2Snippets {
 
     /// @notice Returns the total assets supplied into a specific Morpho Blue market by a VaultV2 `vault`.
     /// @dev This iterates through all adapters and aggregates the VaultV2's share of assets in the specified market.
-    /// @dev For MorphoVaultV1Adapter: calculates VaultV2's proportional share of the MetaMorpho vault's position.
-    ///      The adapter only owns a portion of the MetaMorpho vault, so we compute: (vaultV1MarketAssets * adapterAssets) / vaultV1TotalAssets.
-    /// @dev For MorphoMarketV1AdapterV2: queries the adapter's expectedSupplyAssets directly (adapter owns 100% of its positions).
+    /// @dev For MorphoMarketV1AdapterV2: queries the adapter's expectedSupplyAssets directly (adapter owns 100% of its
+    ///      positions).
+    /// @dev For MorphoVaultV1Adapter:
+    ///      - If the underlying is a VaultV2, recurse into vaultV2AssetsInMarket and scale by ownership share.
+    ///      - Legacy fallback: if the underlying is MetaMorpho V1, use its direct market position and scale by
+    ///        ownership share.
     /// @param vault The address of the VaultV2 vault.
     /// @param marketParams The morpho blue market parameters.
     /// @return assets The total assets in the specified market across all adapters.
@@ -274,37 +277,43 @@ contract MorphoVaultV2Snippets {
         for (uint256 i; i < adapterCount; ++i) {
             address adapter = IVaultV2(vault).adapters(i);
 
-            // Try MorphoVaultV1Adapter first
-            try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address vaultV1) {
-                // The adapter owns a portion of the MetaMorpho vault (vaultV1), not all of it.
-                // We must calculate VaultV2's proportional share of vaultV1's position in this market.
-
-                // Get the adapter's assets in the MetaMorpho vault (VaultV2's ownership value)
-                uint256 adapterAssets = IAdapter(adapter).realAssets();
-
-                // Get the MetaMorpho vault's total assets
-                uint256 vaultV1TotalAssets = IMetaMorpho(vaultV1).totalAssets();
-
-                // Get the MetaMorpho vault's total position in this specific market
-                uint256 vaultV1MarketAssets = morpho.expectedSupplyAssets(marketParams, vaultV1);
-
-                // Calculate VaultV2's proportional share: (vaultV1MarketAssets * adapterAssets) / vaultV1TotalAssets
-                if (vaultV1TotalAssets > 0) {
-                    assets += vaultV1MarketAssets.mulDivDown(adapterAssets, vaultV1TotalAssets);
+            // Try MorphoMarketV1AdapterV2 first.
+            try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
+                for (uint256 j; j < marketCount; ++j) {
+                    bytes32 adapterMarketId = IMorphoMarketV1AdapterV2(adapter).marketIds(j);
+                    if (adapterMarketId == Id.unwrap(marketId)) {
+                        assets += IMorphoMarketV1AdapterV2(adapter).expectedSupplyAssets(adapterMarketId);
+                        break;
+                    }
                 }
             } catch {
-                // Try MorphoMarketV1AdapterV2
-                try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
-                    // Check if this adapter has the market
-                    for (uint256 j; j < marketCount; ++j) {
-                        bytes32 adapterMarketId = IMorphoMarketV1AdapterV2(adapter).marketIds(j);
-                        if (adapterMarketId == Id.unwrap(marketId)) {
-                            assets += IMorphoMarketV1AdapterV2(adapter).expectedSupplyAssets(adapterMarketId);
-                            break;
+                // Try MorphoVaultV1Adapter.
+                try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlyingVault) {
+                    uint256 adapterAssets = IAdapter(adapter).realAssets();
+                    if (adapterAssets == 0) continue;
+
+                    uint256 underlyingTotalAssets;
+                    uint256 underlyingMarketAssets;
+
+                    // Underlying is VaultV2 -> recurse.
+                    try IVaultV2(underlyingVault).liquidityAdapter() {
+                        underlyingTotalAssets = IVaultV2(underlyingVault).totalAssets();
+                        if (underlyingTotalAssets == 0) continue;
+                        underlyingMarketAssets = vaultV2AssetsInMarket(underlyingVault, marketParams);
+                    } catch {
+                        // Legacy fallback: underlying is MetaMorpho V1.
+                        try IMetaMorpho(underlyingVault).totalAssets() returns (uint256 totalAssets_) {
+                            underlyingTotalAssets = totalAssets_;
+                            if (underlyingTotalAssets == 0) continue;
+                            underlyingMarketAssets = vaultV1AssetsInMarket(underlyingVault, marketParams);
+                        } catch {
+                            continue;
                         }
                     }
+
+                    assets += underlyingMarketAssets.mulDivDown(adapterAssets, underlyingTotalAssets);
                 } catch {
-                    // Unknown adapter type, skip
+                    // Unknown adapter type, skip.
                     continue;
                 }
             }
@@ -313,8 +322,10 @@ contract MorphoVaultV2Snippets {
 
     /// @notice Returns all Morpho Blue market IDs that a VaultV2 `vault` is exposed to.
     /// @dev This iterates through all adapters and collects unique market IDs.
-    /// @dev For MorphoVaultV1Adapter: gets markets from the MetaMorpho vault's withdraw queue.
     /// @dev For MorphoMarketV1AdapterV2: gets markets from the adapter's marketIds list.
+    /// @dev For MorphoVaultV1Adapter:
+    ///      - If the underlying is a VaultV2, recurse into marketsInVaultV2.
+    ///      - Legacy fallback: if the underlying is MetaMorpho V1, use its withdraw queue.
     /// @param vault The address of the VaultV2 vault.
     /// @return marketIds An array of unique market IDs the vault is exposed to.
     function marketsInVaultV2(address vault) public view returns (bytes32[] memory marketIds) {
@@ -325,11 +336,20 @@ contract MorphoVaultV2Snippets {
         for (uint256 i; i < adapterCount; ++i) {
             address adapter = IVaultV2(vault).adapters(i);
 
-            try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address vaultV1) {
-                totalMarkets += IMetaMorpho(vaultV1).withdrawQueueLength();
+            try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
+                totalMarkets += marketCount;
             } catch {
-                try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
-                    totalMarkets += marketCount;
+                try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlyingVault) {
+                    try IVaultV2(underlyingVault).liquidityAdapter() {
+                        totalMarkets += marketsInVaultV2(underlyingVault).length;
+                    } catch {
+                        // Legacy fallback: MetaMorpho V1.
+                        try IMetaMorpho(underlyingVault).withdrawQueueLength() returns (uint256 queueLength) {
+                            totalMarkets += queueLength;
+                        } catch {
+                            continue;
+                        }
+                    }
                 } catch {
                     continue;
                 }
@@ -345,15 +365,26 @@ contract MorphoVaultV2Snippets {
         for (uint256 i; i < adapterCount; ++i) {
             address adapter = IVaultV2(vault).adapters(i);
 
-            try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address vaultV1) {
-                uint256 queueLength = IMetaMorpho(vaultV1).withdrawQueueLength();
-                for (uint256 j; j < queueLength; ++j) {
-                    allMarkets[index++] = Id.unwrap(IMetaMorpho(vaultV1).withdrawQueue(j));
+            try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
+                for (uint256 j; j < marketCount; ++j) {
+                    allMarkets[index++] = IMorphoMarketV1AdapterV2(adapter).marketIds(j);
                 }
             } catch {
-                try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
-                    for (uint256 j; j < marketCount; ++j) {
-                        allMarkets[index++] = IMorphoMarketV1AdapterV2(adapter).marketIds(j);
+                try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlyingVault) {
+                    try IVaultV2(underlyingVault).liquidityAdapter() {
+                        bytes32[] memory nestedMarkets = marketsInVaultV2(underlyingVault);
+                        for (uint256 j; j < nestedMarkets.length; ++j) {
+                            allMarkets[index++] = nestedMarkets[j];
+                        }
+                    } catch {
+                        // Legacy fallback: MetaMorpho V1.
+                        try IMetaMorpho(underlyingVault).withdrawQueueLength() returns (uint256 queueLength) {
+                            for (uint256 j; j < queueLength; ++j) {
+                                allMarkets[index++] = Id.unwrap(IMetaMorpho(underlyingVault).withdrawQueue(j));
+                            }
+                        } catch {
+                            continue;
+                        }
                     }
                 } catch {
                     continue;
@@ -414,7 +445,7 @@ contract MorphoVaultV2Snippets {
     /// @param vault The address of the MetaMorpho vault.
     /// @param marketParams The morpho blue market parameters.
     /// @return assets The assets supplied by the vault in the specified market.
-    function vaultAssetsInMarket(address vault, MarketParams memory marketParams)
+    function vaultV1AssetsInMarket(address vault, MarketParams memory marketParams)
         public
         view
         returns (uint256 assets)
@@ -439,7 +470,7 @@ contract MorphoVaultV2Snippets {
             Market memory market = morpho.market(idMarket);
 
             uint256 currentSupplyAPY = supplyAPYMarketV1(marketParams, market);
-            uint256 vaultAsset = vaultAssetsInMarket(vault, marketParams);
+            uint256 vaultAsset = vaultV1AssetsInMarket(vault, marketParams);
             ratio += currentSupplyAPY.wMulDown(vaultAsset);
         }
 

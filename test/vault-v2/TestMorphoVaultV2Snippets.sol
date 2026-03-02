@@ -515,7 +515,7 @@ contract TestMorphoVaultV2Snippets is MorphoVaultV1IntegrationTest {
         morpho.borrow(allMarketParams[0], borrowAmount, 0, borrower, borrower);
         vm.stopPrank();
 
-        uint256 assetsInMarket = snippets.vaultAssetsInMarket(address(morphoVaultV1), allMarketParams[0]);
+        uint256 assetsInMarket = snippets.vaultV1AssetsInMarket(address(morphoVaultV1), allMarketParams[0]);
         assertGt(assetsInMarket, 0, "vault assets in market should be > 0");
 
         uint256 marketApy = snippets.supplyAPYMarketV1(allMarketParams[0], morpho.market(allMarketParams[0].id()));
@@ -800,6 +800,51 @@ contract TestMorphoVaultV2SnippetsRecursiveAPY is MorphoVaultV1IntegrationTest {
         uint256 apy = snippets.supplyAPYVaultV2(address(outerVault));
         assertEq(apy, 0, "APY should be 0 for empty vault");
     }
+
+    /// @notice marketsInVaultV2 should recurse through outer -> inner VaultV2 and return inner market ids.
+    function test_V2OnV2_MarketsInVaultV2_RecursesToInnerVault() public view {
+        bytes32[] memory markets = snippets.marketsInVaultV2(address(outerVault));
+        assertGt(markets.length, 0, "outer vault should expose inner markets");
+
+        bytes32 targetMarket = Id.unwrap(allMarketParams[0].id());
+        uint256 occurrences;
+        for (uint256 i; i < markets.length; ++i) {
+            if (markets[i] == targetMarket) occurrences++;
+        }
+
+        assertEq(occurrences, 1, "inner market id should appear once");
+    }
+
+    /// @notice vaultV2AssetsInMarket should recurse and scale inner assets by outer ownership share.
+    function test_V2OnV2_VaultV2AssetsInMarket_UsesInnerShare() public {
+        uint256 innerDirectDeposit = 2e18;
+        deal(address(underlyingToken), address(this), innerDirectDeposit);
+        vault.deposit(innerDirectDeposit, address(this));
+
+        uint256 outerDeposit = 1e18;
+        deal(address(underlyingToken), SUPPLIER, outerDeposit);
+        vm.startPrank(SUPPLIER);
+        underlyingToken.approve(address(outerVault), outerDeposit);
+        outerVault.deposit(outerDeposit, SUPPLIER);
+        vm.stopPrank();
+
+        MarketParams memory mp = allMarketParams[0];
+        uint256 innerMarketAssets = snippets.vaultV2AssetsInMarket(address(vault), mp);
+        uint256 outerMarketAssets = snippets.vaultV2AssetsInMarket(address(outerVault), mp);
+
+        uint256 outerAdapterAssets = IAdapter(address(outerAdapter)).realAssets();
+        uint256 innerTotalAssets = vault.totalAssets();
+        uint256 expectedOuterMarketAssets = innerMarketAssets.mulDivDown(outerAdapterAssets, innerTotalAssets);
+
+        assertGt(innerMarketAssets, 0, "inner market assets should be > 0");
+        assertGt(outerMarketAssets, 0, "outer market assets should be > 0");
+        assertApproxEqAbs(
+            outerMarketAssets,
+            expectedOuterMarketAssets,
+            2,
+            "outer market assets should match proportional recursive share"
+        );
+    }
 }
 
 /// @notice Covers MorphoMarketV1AdapterV2 APY path and market dedup behavior across adapters.
@@ -901,5 +946,90 @@ contract TestMorphoVaultV2SnippetsMarketAdapterCoverage is MorphoVaultV1Integrat
         uint256 marketCount = IMorphoMarketV1AdapterV2(marketAdapter).marketIdsLength();
         assertEq(marketCount, 1, "market adapter should track one allocated market");
         assertEq(IMorphoMarketV1AdapterV2(marketAdapter).marketIds(0), sharedMarketId, "tracked market id mismatch");
+    }
+}
+
+/// @notice Covers outer fee wrapper (V2 -> MorphoVaultV1Adapter) with inner V2 using MorphoMarketV1AdapterV2.
+contract TestMorphoVaultV2SnippetsNestedMarketAdapterCoverage is TestMorphoVaultV2SnippetsMarketAdapterCoverage {
+    MorphoVaultV1AdapterFactory internal extraAdapterFactory;
+    VaultV2 internal outerVault;
+    MorphoVaultV1Adapter internal outerAdapter;
+
+    address internal SUPPLIER = makeAddr("NestedSupplier");
+
+    function setUp() public virtual override {
+        super.setUp();
+
+        extraAdapterFactory = new MorphoVaultV1AdapterFactory();
+
+        outerVault = new VaultV2(owner, address(underlyingToken));
+        outerAdapter = MorphoVaultV1Adapter(
+            extraAdapterFactory.createMorphoVaultV1Adapter(address(outerVault), address(vault))
+        );
+
+        vm.startPrank(owner);
+        outerVault.setCurator(curator);
+        vm.stopPrank();
+
+        vm.prank(curator);
+        outerVault.submit(abi.encodeCall(IVaultV2.setIsAllocator, (allocator, true)));
+        outerVault.setIsAllocator(allocator, true);
+
+        vm.prank(curator);
+        outerVault.submit(abi.encodeCall(IVaultV2.addAdapter, (address(outerAdapter))));
+        outerVault.addAdapter(address(outerAdapter));
+
+        bytes memory idData = abi.encode("this", address(outerAdapter));
+        vm.prank(curator);
+        outerVault.submit(abi.encodeCall(IVaultV2.increaseAbsoluteCap, (idData, type(uint128).max)));
+        outerVault.increaseAbsoluteCap(idData, type(uint128).max);
+
+        vm.prank(curator);
+        outerVault.submit(abi.encodeCall(IVaultV2.increaseRelativeCap, (idData, 1e18)));
+        outerVault.increaseRelativeCap(idData, 1e18);
+
+        vm.prank(allocator);
+        outerVault.setLiquidityAdapterAndData(address(outerAdapter), "");
+
+        // Inner vault uses market adapter as its liquidity adapter.
+        vm.prank(allocator);
+        vault.setLiquidityAdapterAndData(marketAdapter, abi.encode(sharedMarketParams));
+    }
+
+    function testNestedMarketAdapter_MarketsInVaultV2_RecursesToInnerVault() public view {
+        bytes32 sharedMarketId = Id.unwrap(sharedMarketParams.id());
+        bytes32[] memory markets = snippets.marketsInVaultV2(address(outerVault));
+
+        uint256 occurrences;
+        for (uint256 i; i < markets.length; ++i) {
+            if (markets[i] == sharedMarketId) occurrences++;
+        }
+
+        assertEq(occurrences, 1, "shared market id should appear once on outer vault");
+    }
+
+    function testNestedMarketAdapter_VaultV2AssetsInMarket_UsesInnerShare() public {
+        uint256 outerDeposit = 1e18;
+        deal(address(underlyingToken), SUPPLIER, outerDeposit);
+        vm.startPrank(SUPPLIER);
+        underlyingToken.approve(address(outerVault), outerDeposit);
+        outerVault.deposit(outerDeposit, SUPPLIER);
+        vm.stopPrank();
+
+        uint256 innerMarketAssets = snippets.vaultV2AssetsInMarket(address(vault), sharedMarketParams);
+        uint256 outerMarketAssets = snippets.vaultV2AssetsInMarket(address(outerVault), sharedMarketParams);
+
+        uint256 outerAdapterAssets = IAdapter(address(outerAdapter)).realAssets();
+        uint256 innerTotalAssets = vault.totalAssets();
+        uint256 expectedOuterMarketAssets = innerMarketAssets.mulDivDown(outerAdapterAssets, innerTotalAssets);
+
+        assertGt(innerMarketAssets, 0, "inner market assets should be > 0");
+        assertGt(outerMarketAssets, 0, "outer market assets should be > 0");
+        assertApproxEqAbs(
+            outerMarketAssets,
+            expectedOuterMarketAssets,
+            2,
+            "outer market assets should match proportional recursive share"
+        );
     }
 }

@@ -83,6 +83,9 @@ One can use the logic provided in the following:
 - `previewWithdrawVaultV2`
 - `previewRedeemVaultV2`
 - `effectiveCapById`
+- `vaultV2AssetsInMarket`
+- `marketsInVaultV2`
+- `vaultV1AssetsInMarket` (legacy helper for MetaMorpho V1)
 - `supplyAPYVaultV2`
 
 2. Functions to modify state:
@@ -95,7 +98,33 @@ One can use the logic provided in the following:
 - `accrueInterestVaultV2`
 
 > [!NOTE]
-> The VaultV2 snippets currently support Morpho Vault V1 adapters (MetaMorpho). Support for Morpho Market adapters is not yet implemented.
+> The VaultV2 snippets support MorphoMarketV1AdapterV2 and MorphoVaultV1Adapter.
+> For MorphoVaultV1Adapter, nested VaultV2 wrappers are supported and MetaMorpho V1 handling is kept as a legacy fallback path.
+
+## VaultV2 Liquidity Lib (Alternative View for maxWithdraw / maxRedeem)
+
+`VaultV2` intentionally returns `0` for default `maxWithdraw` and `maxRedeem` in many integrations, which can make
+UI/analytics liquidity estimation harder.
+
+`VaultV2LiquidityLib` and `VaultV2LiquidityLens` provide an alternative view-only way to recompute withdrawable
+liquidity from current state:
+
+- `availableLiquidity(vault)`: recomputes instant exit liquidity as `idle assets + liquidity from the configured liquidity adapter`
+- `maxWithdraw(vault, owner)`: recomputes `min(owner assets, available liquidity)`
+- `maxRedeem(vault, owner)`: recomputes `min(owner shares, shares implied by available liquidity)`
+- `adapterLiquidity(adapter, liqData)`: exposes adapter-level liquidity computation
+
+How liquidity is recomputed:
+
+- Idle part: token balance held directly by the vault
+- Adapter part: derived from the current `liquidityAdapter` + `liquidityData` configuration
+- For Morpho market adapter path, computation mirrors the single exit market encoded in `liquidityData`
+
+> [!NOTE]
+> This library is a demo/integration helper and currently supports only:
+> - `MorphoMarketV1AdapterV2`
+> - `MorphoVaultV1Adapter`
+> Unknown adapter families are ignored (contribute `0`), so new adapter types require explicit library updates.
 
 ## Getting Started
 

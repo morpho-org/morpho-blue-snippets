@@ -13,11 +13,17 @@ import {MorphoBalancesLib} from "../../lib/vault-v2/lib/metamorpho/lib/morpho-bl
 
 /// @title VaultV2LiquidityLib
 /// @notice Library to compute available liquidity and max withdrawable amounts for VaultV2
+/// @dev DEMO / INTEGRATION HELPER ONLY: this library is not a generic adapter router and should not be treated as a
+///      canonical source of truth for all VaultV2 adapter families.
+/// @dev Adapter coverage is intentionally limited to:
+///      - MorphoMarketV1AdapterV2
+///      - MorphoVaultV1Adapter
+/// @dev Unknown adapters are conservatively ignored and contribute 0 liquidity.
+/// @dev If new Morpho protocols or adapter types are added, this library must be updated to support them explicitly.
 /// @dev This provides the "view" equivalent of maxWithdraw/maxRedeem that VaultV2 returns 0 for.
 /// @dev Designed to help integrators who need a liquidity() view getter.
 /// @dev IMPORTANT: The vault's exit() function only auto-withdraws from the single market encoded
 ///      in liquidityData, not from all markets in the adapter. This library mirrors that behavior.
-/// @dev Unknown adapter types are treated conservatively and contribute 0 liquidity.
 library VaultV2LiquidityLib {
     using SharesMathLib for uint256;
     using MarketParamsLib for MarketParams;
