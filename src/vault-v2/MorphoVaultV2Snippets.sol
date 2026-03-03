@@ -277,46 +277,45 @@ contract MorphoVaultV2Snippets {
         for (uint256 i; i < adapterCount; ++i) {
             address adapter = IVaultV2(vault).adapters(i);
 
-            // Try MorphoMarketV1AdapterV2 first.
+            // Check MorphoMarketV1AdapterV2.
             try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
                 for (uint256 j; j < marketCount; ++j) {
                     bytes32 adapterMarketId = IMorphoMarketV1AdapterV2(adapter).marketIds(j);
                     if (adapterMarketId == Id.unwrap(marketId)) {
                         assets += IMorphoMarketV1AdapterV2(adapter).expectedSupplyAssets(adapterMarketId);
-                        break;
+                        break; // Each market ID is unique within an adapter.
                     }
                 }
-            } catch {
-                // Try MorphoVaultV1Adapter.
-                try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlyingVault) {
-                    uint256 adapterAssets = IAdapter(adapter).realAssets();
-                    if (adapterAssets == 0) continue;
+            } catch {}
 
+            // Check MorphoVaultV1Adapter.
+            try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlyingVault) {
+                uint256 adapterAssets = IAdapter(adapter).realAssets();
+                if (adapterAssets > 0) {
                     uint256 underlyingTotalAssets;
                     uint256 underlyingMarketAssets;
 
-                    // Underlying is VaultV2 -> recurse.
-                    try IVaultV2(underlyingVault).liquidityAdapter() {
+                    // Detect if underlying is a VaultV2 by probing adaptersLength (V2-specific).
+                    try IVaultV2(underlyingVault).adaptersLength() {
                         underlyingTotalAssets = IVaultV2(underlyingVault).totalAssets();
-                        if (underlyingTotalAssets == 0) continue;
-                        underlyingMarketAssets = vaultV2AssetsInMarket(underlyingVault, marketParams);
+                        if (underlyingTotalAssets > 0) {
+                            underlyingMarketAssets = vaultV2AssetsInMarket(underlyingVault, marketParams);
+                        }
                     } catch {
                         // Legacy fallback: underlying is MetaMorpho V1.
                         try IMetaMorpho(underlyingVault).totalAssets() returns (uint256 totalAssets_) {
                             underlyingTotalAssets = totalAssets_;
-                            if (underlyingTotalAssets == 0) continue;
-                            underlyingMarketAssets = vaultV1AssetsInMarket(underlyingVault, marketParams);
-                        } catch {
-                            continue;
-                        }
+                            if (underlyingTotalAssets > 0) {
+                                underlyingMarketAssets = vaultV1AssetsInMarket(underlyingVault, marketParams);
+                            }
+                        } catch {}
                     }
 
-                    assets += underlyingMarketAssets.mulDivDown(adapterAssets, underlyingTotalAssets);
-                } catch {
-                    // Unknown adapter type, skip.
-                    continue;
+                    if (underlyingTotalAssets > 0) {
+                        assets += underlyingMarketAssets.mulDivDown(adapterAssets, underlyingTotalAssets);
+                    }
                 }
-            }
+            } catch {}
         }
     }
 
@@ -331,88 +330,51 @@ contract MorphoVaultV2Snippets {
     function marketsInVaultV2(address vault) public view returns (bytes32[] memory marketIds) {
         uint256 adapterCount = IVaultV2(vault).adaptersLength();
 
-        // First pass: count total markets (may include duplicates)
-        uint256 totalMarkets;
-        for (uint256 i; i < adapterCount; ++i) {
-            address adapter = IVaultV2(vault).adapters(i);
-
-            try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
-                totalMarkets += marketCount;
-            } catch {
-                try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlyingVault) {
-                    try IVaultV2(underlyingVault).liquidityAdapter() {
-                        totalMarkets += marketsInVaultV2(underlyingVault).length;
-                    } catch {
-                        // Legacy fallback: MetaMorpho V1.
-                        try IMetaMorpho(underlyingVault).withdrawQueueLength() returns (uint256 queueLength) {
-                            totalMarkets += queueLength;
-                        } catch {
-                            continue;
-                        }
-                    }
-                } catch {
-                    continue;
-                }
-            }
-        }
-
-        if (totalMarkets == 0) return new bytes32[](0);
-
-        // Second pass: collect all market IDs
-        bytes32[] memory allMarkets = new bytes32[](totalMarkets);
-        uint256 index;
+        // Single pass: collect unique market IDs with on-the-fly dedup.
+        bytes32[] memory tempMarkets = new bytes32[](256);
+        uint256 uniqueCount;
 
         for (uint256 i; i < adapterCount; ++i) {
             address adapter = IVaultV2(vault).adapters(i);
 
+            // Check MorphoMarketV1AdapterV2.
             try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
                 for (uint256 j; j < marketCount; ++j) {
-                    allMarkets[index++] = IMorphoMarketV1AdapterV2(adapter).marketIds(j);
+                    bytes32 mid = IMorphoMarketV1AdapterV2(adapter).marketIds(j);
+                    if (!_contains(tempMarkets, uniqueCount, mid)) {
+                        tempMarkets[uniqueCount++] = mid;
+                    }
                 }
-            } catch {
-                try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlyingVault) {
-                    try IVaultV2(underlyingVault).liquidityAdapter() {
-                        bytes32[] memory nestedMarkets = marketsInVaultV2(underlyingVault);
-                        for (uint256 j; j < nestedMarkets.length; ++j) {
-                            allMarkets[index++] = nestedMarkets[j];
-                        }
-                    } catch {
-                        // Legacy fallback: MetaMorpho V1.
-                        try IMetaMorpho(underlyingVault).withdrawQueueLength() returns (uint256 queueLength) {
-                            for (uint256 j; j < queueLength; ++j) {
-                                allMarkets[index++] = Id.unwrap(IMetaMorpho(underlyingVault).withdrawQueue(j));
-                            }
-                        } catch {
-                            continue;
+            } catch {}
+
+            // Check MorphoVaultV1Adapter.
+            try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlyingVault) {
+                // Detect if underlying is a VaultV2 by probing adaptersLength (V2-specific).
+                try IVaultV2(underlyingVault).adaptersLength() {
+                    bytes32[] memory nestedMarkets = marketsInVaultV2(underlyingVault);
+                    for (uint256 j; j < nestedMarkets.length; ++j) {
+                        if (!_contains(tempMarkets, uniqueCount, nestedMarkets[j])) {
+                            tempMarkets[uniqueCount++] = nestedMarkets[j];
                         }
                     }
                 } catch {
-                    continue;
+                    // Legacy fallback: MetaMorpho V1.
+                    try IMetaMorpho(underlyingVault).withdrawQueueLength() returns (uint256 queueLength) {
+                        for (uint256 j; j < queueLength; ++j) {
+                            bytes32 mid = Id.unwrap(IMetaMorpho(underlyingVault).withdrawQueue(j));
+                            if (!_contains(tempMarkets, uniqueCount, mid)) {
+                                tempMarkets[uniqueCount++] = mid;
+                            }
+                        }
+                    } catch {}
                 }
-            }
+            } catch {}
         }
 
-        // Third pass: deduplicate (simple O(n^2) approach, acceptable for small arrays)
-        uint256 uniqueCount;
-        bytes32[] memory uniqueMarkets = new bytes32[](index);
-
-        for (uint256 i; i < index; ++i) {
-            bool isDuplicate;
-            for (uint256 j; j < uniqueCount; ++j) {
-                if (allMarkets[i] == uniqueMarkets[j]) {
-                    isDuplicate = true;
-                    break;
-                }
-            }
-            if (!isDuplicate) {
-                uniqueMarkets[uniqueCount++] = allMarkets[i];
-            }
-        }
-
-        // Resize to actual unique count
+        // Resize to actual unique count.
         marketIds = new bytes32[](uniqueCount);
         for (uint256 i; i < uniqueCount; ++i) {
-            marketIds[i] = uniqueMarkets[i];
+            marketIds[i] = tempMarkets[i];
         }
     }
 
@@ -494,31 +456,26 @@ contract MorphoVaultV2Snippets {
         for (uint256 i; i < adapterCount; ++i) {
             address adapter = IVaultV2(vault).adapters(i);
 
-            // Try MorphoVaultV1Adapter first (it can wrap MetaMorpho V1 or VaultV2).
+            // Check MorphoMarketV1AdapterV2.
+            try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
+                weightedSum += _supplyAPYMorphoMarketV1AdapterV2(adapter, marketCount);
+            } catch {}
+
+            // Check MorphoVaultV1Adapter.
             try IMorphoVaultV1Adapter(adapter).morphoVaultV1() returns (address underlying) {
                 uint256 adapterRealAssets = IAdapter(adapter).realAssets();
-                if (adapterRealAssets == 0) continue;
+                if (adapterRealAssets > 0) {
+                    uint256 underlyingAPY;
+                    // Detect if underlying is a VaultV2 by probing adaptersLength (V2-specific).
+                    try IVaultV2(underlying).adaptersLength() {
+                        underlyingAPY = supplyAPYVaultV2(underlying);
+                    } catch {
+                        underlyingAPY = supplyAPYVaultV1(underlying);
+                    }
 
-                uint256 underlyingAPY;
-                // Detect if underlying is a VaultV2 by probing a V2-specific function.
-                try IVaultV2(underlying).liquidityAdapter() {
-                    // VaultV2 → recurse (returns net APY after its own fees)
-                    underlyingAPY = supplyAPYVaultV2(underlying);
-                } catch {
-                    // MetaMorpho V1 → use V1 APY logic
-                    underlyingAPY = supplyAPYVaultV1(underlying);
+                    weightedSum += underlyingAPY.wMulDown(adapterRealAssets);
                 }
-
-                weightedSum += underlyingAPY.wMulDown(adapterRealAssets);
-            } catch {
-                // Try MorphoMarketV1AdapterV2.
-                try IMorphoMarketV1AdapterV2(adapter).marketIdsLength() returns (uint256 marketCount) {
-                    weightedSum += _supplyAPYMorphoMarketV1AdapterV2(adapter, marketCount);
-                } catch {
-                    // Unknown adapter type, skip
-                    continue;
-                }
-            }
+            } catch {}
         }
 
         // Calculate the gross APY (weighted by total assets)
@@ -666,6 +623,14 @@ contract MorphoVaultV2Snippets {
     }
 
     // --- INTERNAL HELPERS ---
+
+    /// @notice Checks if a bytes32 value exists in the first `count` elements of an array.
+    function _contains(bytes32[] memory arr, uint256 count, bytes32 value) internal pure returns (bool) {
+        for (uint256 i; i < count; ++i) {
+            if (arr[i] == value) return true;
+        }
+        return false;
+    }
 
     /// @notice Approves the vault to spend the maximum amount of the underlying asset if not already approved.
     /// @dev This is an internal helper to avoid repeated approvals.
