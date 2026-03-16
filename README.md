@@ -126,6 +126,37 @@ How liquidity is recomputed:
 > - `MorphoVaultV1Adapter`
 > Unknown adapter families are ignored (contribute `0`), so new adapter types require explicit library updates.
 
+## VaultV2 Fee Wrapper Deployer
+
+`FeeWrapperDeployer` deploys and configures a VaultV2 "fee wrapper" on top of an existing Morpho Vault V2 in a single
+atomic transaction. A fee wrapper is a VaultV2 that wraps a child vault via a MorphoVaultV1Adapter: users deposit into
+the wrapper, funds are routed to the child vault, and the wrapper owner charges performance and/or management fees on
+the yield.
+
+The deployer handles all setup atomically:
+
+1. Creates the wrapper vault and adapter pointing to the child vault
+2. Permanently locks the adapter configuration (addAdapter and removeAdapter are abdicated)
+3. Sets caps, liquidity routing, max rate, and force-deallocate penalty to recommended defaults
+4. Optionally configures performance fee, management fee, and fee recipient
+5. Optionally abdicates gate setters for non-custodial guarantees
+6. Transfers ownership to the final owner (must be a safe wallet)
+
+Configurable parameters via `FeeWrapperConfig`:
+
+- `owner` / `salt` / `childVault` (required)
+- `name` / `symbol` (ERC20 metadata, settable later by owner)
+- `performanceFee` / `managementFee` / `feeRecipient` (optional, configurable later by curator)
+- `abdicateNonCriticalGates` (if true, permanently locks gates open for non-custodial operation)
+
+> [!IMPORTANT]
+> The child vault **must** be a Morpho Vault V2. The "MorphoVaultV1Adapter" name is a legacy artifact; the adapter is
+> ERC4626-compatible but V2 is the only audited and recommended configuration.
+
+> [!NOTE]
+> For compliance use cases (KYC/AML), leave `abdicateNonCriticalGates = false` and configure gates later via the
+> curator + timelock mechanism.
+
 ## Getting Started
 
 - Install [Foundry](https://book.getfoundry.sh/getting-started/installation)
