@@ -38,6 +38,16 @@ One can use the logic provided in the following:
 - `leverageMe`
 - `deLeverageMe`
 
+4. Origination fee examples:
+
+- `borrowWithOriginationFee` through `OriginationFeeSnippets.sol`, where the user authorizes an owner-managed router on
+  Morpho Blue. The owner can update the fee recipient and fee bps within the hard-coded fee cap.
+- `borrowWithOriginationFee` through `OriginationFeeExecutor.sol`, where an EOA delegates to the executor with
+  EIP-7702 and calls itself.
+
+These reference examples charge a one-shot fee on the borrowed asset at borrow time. The fee is paid in the loan token,
+and the borrower accrues interest on the net amount received plus the fee.
+
 ## MetaMorpho related functions in Solidity:
 
 One can use the logic provided in the following:
