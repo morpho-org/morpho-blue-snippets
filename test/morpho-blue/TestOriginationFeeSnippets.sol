@@ -38,6 +38,8 @@ contract OriginationFeeSnippetsTest is BaseTest {
     OriginationFeeExecutor internal executor;
 
     event OriginationFeeCharged(address indexed borrower, Id indexed marketId, uint256 userAssets, uint256 feeAmount);
+    event FeeRecipientSet(address indexed newFeeRecipient);
+    event FeeBpsSet(uint256 newFeeBps);
 
     function setUp() public virtual override {
         super.setUp();
@@ -103,6 +105,59 @@ contract OriginationFeeSnippetsTest is BaseTest {
 
         vm.expectRevert(bytes("INVALID_FEE_BPS"));
         new OriginationFeeSnippets(morpho, feeRecipient, MAX_FEE_BPS + 1);
+    }
+
+    function testOwnerCanSetFeeConfigAndBorrowUsesIt(uint256 userAssets) public {
+        userAssets = _boundBorrowAmount(userAssets);
+        address newFeeRecipient = makeAddr("newFeeRecipient");
+        uint256 newFeeBps = 350;
+        uint256 feeAmount = _fee(userAssets, newFeeBps);
+        uint256 totalBorrowed = userAssets + feeAmount;
+
+        vm.expectEmit(true, false, false, true, address(snippets));
+        emit FeeRecipientSet(newFeeRecipient);
+        snippets.setFeeRecipient(newFeeRecipient);
+
+        vm.expectEmit(false, false, false, true, address(snippets));
+        emit FeeBpsSet(newFeeBps);
+        snippets.setFeeBps(newFeeBps);
+
+        assertEq(snippets.feeRecipient(), newFeeRecipient, "fee recipient");
+        assertEq(snippets.feeBps(), newFeeBps, "fee bps");
+
+        _supplyLiquidity(MAX_TEST_AMOUNT);
+        _supplyCollateralForBorrower(BORROWER);
+
+        vm.prank(BORROWER);
+        (uint256 returnedFee, uint256 returnedBorrowed) = snippets.borrowWithOriginationFee(marketParams, userAssets);
+
+        assertEq(returnedFee, feeAmount, "returned fee");
+        assertEq(returnedBorrowed, totalBorrowed, "returned borrowed");
+        assertEq(loanToken.balanceOf(feeRecipient), 0, "old fee recipient balance");
+        _assertOriginationFeeOutcome(BORROWER, newFeeRecipient, userAssets, feeAmount);
+    }
+
+    function testOnlyOwnerCanSetFeeConfig() public {
+        address newFeeRecipient = makeAddr("newFeeRecipient");
+
+        vm.startPrank(BORROWER);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        snippets.setFeeRecipient(newFeeRecipient);
+
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        snippets.setFeeBps(350);
+        vm.stopPrank();
+    }
+
+    function testSetFeeConfigBounds() public {
+        vm.expectRevert(bytes("ZERO_RECIPIENT"));
+        snippets.setFeeRecipient(address(0));
+
+        vm.expectRevert(bytes("INVALID_FEE_BPS"));
+        snippets.setFeeBps(0);
+
+        vm.expectRevert(bytes("INVALID_FEE_BPS"));
+        snippets.setFeeBps(MAX_FEE_BPS + 1);
     }
 
     function testInterestAccruesOnGrossAmount() public {

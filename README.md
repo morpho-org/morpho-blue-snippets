@@ -40,8 +40,8 @@ One can use the logic provided in the following:
 
 4. Origination fee examples:
 
-- `borrowWithOriginationFee` through `OriginationFeeSnippets.sol`, where the user authorizes an immutable router on
-  Morpho Blue.
+- `borrowWithOriginationFee` through `OriginationFeeSnippets.sol`, where the user authorizes an owner-managed router on
+  Morpho Blue. The owner can update the fee recipient and fee bps within the hard-coded fee cap.
 - `borrowWithOriginationFee` through `OriginationFeeExecutor.sol`, where an EOA delegates to the executor with
   EIP-7702 and calls itself.
 
