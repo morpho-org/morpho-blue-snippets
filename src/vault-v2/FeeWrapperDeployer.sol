@@ -12,6 +12,27 @@ import {MAX_MAX_RATE, MAX_FORCE_DEALLOCATE_PENALTY, WAD} from "../../lib/vault-v
 /// @title FeeWrapperDeployer
 /// @notice Deploys and configures a VaultV2 "fee wrapper" on top of an existing Morpho Vault V2 child vault.
 ///
+/// ============================================================================================
+///  HOW TO DEPLOY A FEE WRAPPER  ->  USE THE SCRIPT, NOT THIS CONTRACT DIRECTLY
+/// ============================================================================================
+///
+///   Deploy through the Foundry script:  script/DeployFeeWrapper.s.sol
+///
+///       forge script script/DeployFeeWrapper.s.sol:DeployFeeWrapper --rpc-url <rpc> --broadcast
+///
+///   Do NOT call createFeeWrapper ad hoc from another contract or from unpinned tooling.
+///   The fee wrapper's deterministic (CREATE2) address is bound to the caller (msg.sender), so it
+///   is only meaningful relative to the account that created it. The script pins that account,
+///   logs the resulting address, and verifies on-chain provenance so deployments stay reproducible
+///   and cannot be front-run/squatted.
+///
+///   ->  Read the sections below IN FULL before deploying. In particular:
+///         - "Deterministic Address & Front-Running Protection" (why the script is mandatory)
+///         - "Roles & Responsibilities"                          (owner MUST be a safe multisig)
+///         - "What is FIXED at deployment"                       (irreversible choices)
+///
+/// ============================================================================================
+///
 /// A fee wrapper is a VaultV2 that wraps a single child vault via a fixed MorphoVaultV1Adapter.
 /// Users deposit into the fee wrapper, which routes funds to the child vault. The wrapper owner
 /// charges performance and/or management fees on the yield.
