@@ -42,9 +42,7 @@ contract TestFeeWrapperDeployer is MorphoVaultV1IntegrationTest {
     }
 
     function _deployWrapper(FeeWrapperDeployer.FeeWrapperConfig memory config) internal returns (IVaultV2) {
-        return IVaultV2(
-            deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config)
-        );
+        return IVaultV2(deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config));
     }
 
     // -----------------------------------------------------------------------
@@ -217,6 +215,137 @@ contract TestFeeWrapperDeployer is MorphoVaultV1IntegrationTest {
         config.salt = bytes32(uint256(99));
 
         vm.expectRevert("FeeWrapperDeployer: child vault must be a Morpho Vault V2");
+        deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+    }
+
+    // -----------------------------------------------------------------------
+    // CREATE2 salt binding / front-running protection
+    //
+    // The effective CREATE2 salt is keccak256(abi.encode(msg.sender, owner, childVault, salt)).
+    // These tests prove the deterministic address is bound to (caller, owner, childVault, salt),
+    // so a mempool front-runner can never occupy a victim's pre-computed address.
+    // -----------------------------------------------------------------------
+
+    /// @dev Deploys a second, distinct Morpho Vault V2 with the same asset, usable as a child vault.
+    function _secondChildVault() internal returns (address) {
+        return vaultFactory.createVaultV2(owner, IVaultV2(address(vault)).asset(), bytes32(uint256(0xC0FFEE)));
+    }
+
+    function testFeeWrapperSaltIsDeterministic() public {
+        address caller = makeAddr("caller");
+        bytes32 expected = keccak256(abi.encode(caller, owner, address(vault), bytes32(uint256(1))));
+        assertEq(deployer.feeWrapperSalt(caller, owner, address(vault), bytes32(uint256(1))), expected, "salt");
+    }
+
+    function testAddressBoundToSender() public {
+        FeeWrapperDeployer.FeeWrapperConfig memory config = _basicConfig();
+        config.salt = bytes32(uint256(0x5E11DE7));
+
+        address alice = makeAddr("alice");
+        address bob = makeAddr("bob");
+
+        vm.prank(alice);
+        address vaultA = deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+
+        // Same config, same user salt, DIFFERENT sender -> different address, no collision.
+        vm.prank(bob);
+        address vaultB = deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+
+        assertTrue(vaultA != vaultB, "sender binds address");
+    }
+
+    function testAddressBoundToOwner() public {
+        FeeWrapperDeployer.FeeWrapperConfig memory config = _basicConfig();
+        config.salt = bytes32(uint256(0x0116E5));
+
+        config.owner = makeAddr("ownerOne");
+        vm.prank(address(this));
+        address vault1 = deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+
+        // Same sender, same user salt, DIFFERENT owner -> different address.
+        config.owner = makeAddr("ownerTwo");
+        address vault2 = deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+
+        assertTrue(vault1 != vault2, "owner binds address");
+    }
+
+    function testAddressBoundToChildVault() public {
+        FeeWrapperDeployer.FeeWrapperConfig memory config = _basicConfig();
+        config.salt = bytes32(uint256(0xC411D));
+
+        address vaultA = deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+
+        // Same sender, same owner, same user salt, DIFFERENT child vault -> different address.
+        config.childVault = _secondChildVault();
+        address vaultB = deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+
+        assertTrue(vaultA != vaultB, "childVault binds address");
+    }
+
+    /// @dev The headline regression test for the CREATE2 squatting finding.
+    /// An attacker front-runs by copying the victim's user salt, but with their own sender and a
+    /// malicious child vault. They land on a DIFFERENT address, so the victim's deployment still
+    /// succeeds at its own (untouched) address, owned by the victim's owner.
+    function testFrontRunnerCannotHijackVictimAddress() public {
+        address victim = makeAddr("victim");
+        address victimOwner = makeAddr("victimOwner");
+        address attacker = makeAddr("attacker");
+        address attackerOwner = makeAddr("attackerOwner");
+        bytes32 sharedSalt = bytes32(uint256(0xBEEF));
+
+        // Attacker mines first, reusing the victim's user salt but with their own params.
+        FeeWrapperDeployer.FeeWrapperConfig memory attackerConfig = _basicConfig();
+        attackerConfig.owner = attackerOwner;
+        attackerConfig.salt = sharedSalt;
+        attackerConfig.childVault = _secondChildVault(); // a same-asset "malicious" child
+        vm.prank(attacker);
+        address attackerVault =
+            deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), attackerConfig);
+
+        // Victim's original tx still executes successfully at its OWN address.
+        FeeWrapperDeployer.FeeWrapperConfig memory victimConfig = _basicConfig();
+        victimConfig.owner = victimOwner;
+        victimConfig.salt = sharedSalt;
+        victimConfig.childVault = address(vault);
+        vm.prank(victim);
+        address victimVault =
+            deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), victimConfig);
+
+        assertTrue(attackerVault != victimVault, "front-runner lands on a different address");
+        assertEq(IVaultV2(victimVault).owner(), victimOwner, "victim owns its vault");
+
+        // Even if the attacker copies the victim's owner AND child vault verbatim, their differing
+        // sender still yields a different address: they can never occupy the victim's slot.
+        FeeWrapperDeployer.FeeWrapperConfig memory copycatConfig = _basicConfig();
+        copycatConfig.owner = victimOwner;
+        copycatConfig.salt = sharedSalt;
+        copycatConfig.childVault = address(vault);
+        vm.prank(attacker);
+        address copycatVault =
+            deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), copycatConfig);
+
+        assertTrue(copycatVault != victimVault, "attacker cannot reproduce victim's address");
+    }
+
+    function testIdenticalDeploymentRevertsOnCollision() public {
+        FeeWrapperDeployer.FeeWrapperConfig memory config = _basicConfig();
+        config.salt = bytes32(uint256(0xDEAD));
+
+        deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+
+        // Same sender, owner, childVault and user salt => same effective salt => CREATE2 collision.
+        vm.expectRevert();
+        deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
+    }
+
+    function testEmitsFeeWrapperCreatedEvent() public {
+        FeeWrapperDeployer.FeeWrapperConfig memory config = _basicConfig();
+        config.salt = bytes32(uint256(0xE7E27));
+
+        // The vault address (topic1) is not known ahead of time, so skip it; check caller (topic2),
+        // owner (topic3) and the data (childVault, userSalt).
+        vm.expectEmit(false, true, true, true, address(deployer));
+        emit FeeWrapperDeployer.FeeWrapperCreated(address(0), address(this), owner, address(vault), config.salt);
         deployer.createFeeWrapper(address(vaultFactory), address(morphoVaultV1AdapterFactory), config);
     }
 }
