@@ -4,7 +4,9 @@ pragma solidity ^0.8.0;
 
 import {IVaultV2Factory} from "../../lib/vault-v2/src/interfaces/IVaultV2Factory.sol";
 import {IVaultV2} from "../../lib/vault-v2/src/interfaces/IVaultV2.sol";
-import {IMorphoVaultV1AdapterFactory} from "../../lib/vault-v2/src/adapters/interfaces/IMorphoVaultV1AdapterFactory.sol";
+import {
+    IMorphoVaultV1AdapterFactory
+} from "../../lib/vault-v2/src/adapters/interfaces/IMorphoVaultV1AdapterFactory.sol";
 import {MAX_MAX_RATE, MAX_FORCE_DEALLOCATE_PENALTY, WAD} from "../../lib/vault-v2/src/libraries/ConstantsLib.sol";
 
 /// @title FeeWrapperDeployer
@@ -82,12 +84,71 @@ import {MAX_MAX_RATE, MAX_FORCE_DEALLOCATE_PENALTY, WAD} from "../../lib/vault-v
 ///
 ///   At vault creation, all timelocks are 0. This allows the deployer to submit + execute
 ///   curator functions atomically in the same transaction.
+///
+/// ---- Deterministic Address & Front-Running Protection ----
+///
+///   The wrapper vault is created via CREATE2, so its address is deterministic. A naive
+///   implementation that forwarded the raw `config.salt` to the factory would be vulnerable to
+///   address squatting: the factory computes the address from (factory, salt, initCodeHash), and
+///   because this deployer is always the initial owner, the initCodeHash is identical for every
+///   caller. A mempool observer could copy a pending `salt`, substitute their own `owner` and a
+///   malicious (same-asset) `childVault`, front-run the victim, and occupy the victim's
+///   pre-computed address with an attacker-controlled, fund-draining configuration.
+///
+///   To make squatting impossible, the CREATE2 salt actually used is NOT `config.salt` directly.
+///   It is an "effective salt" derived from the authenticated deployment parameters:
+///
+///       effectiveSalt = keccak256(abi.encode(msg.sender, owner, childVault, salt))
+///
+///   Consequences:
+///     - The deployed address is a pure function of (deployer EOA, owner, childVault, salt).
+///     - A front-runner necessarily has a different `msg.sender`, so they land on a DIFFERENT
+///       address and can never occupy the address a victim pre-computed. Substituting `owner` or
+///       `childVault` likewise yields a different address.
+///     - The deployment address is therefore bound to the trusted configuration. Anyone can
+///       reproduce it off-chain (or on-chain via `feeWrapperSalt`) knowing only the intended
+///       deployer address and the config.
+///
+///   IMPORTANT: This contract is a low-level building block. The sanctioned way to deploy a fee
+///   wrapper is through the `script/DeployFeeWrapper.s.sol` Foundry script, which pins the
+///   broadcaster (the salt-binding `msg.sender`), logs the resulting deterministic address, and
+///   keeps deployments reproducible. Do not call `createFeeWrapper` ad hoc from other contracts
+///   or from unpinned tooling: the address is only meaningful relative to the caller that created
+///   it, and off-script calls make provenance and address prediction harder to reason about.
 contract FeeWrapperDeployer {
+    /// @notice Emitted once a fee wrapper has been fully deployed and handed over to its owner.
+    /// @param vault The deterministic address of the deployed fee wrapper VaultV2.
+    /// @param caller The address that called createFeeWrapper (part of the CREATE2 salt).
+    /// @param owner The final owner the wrapper was handed over to (part of the CREATE2 salt).
+    /// @param childVault The wrapped child vault (part of the CREATE2 salt).
+    /// @param userSalt The user-supplied salt entropy (config.salt).
+    event FeeWrapperCreated(
+        address indexed vault, address indexed caller, address indexed owner, address childVault, bytes32 userSalt
+    );
+
+    /// @notice Computes the CREATE2 salt that {createFeeWrapper} will use for a given caller and
+    /// configuration. Use this to pre-compute or verify a fee wrapper's deterministic address
+    /// off-chain: the wrapper is deployed by `morphoVaultV2Factory` at
+    /// CREATE2(factory, feeWrapperSalt(...), keccak256(VaultV2 initCode ++ abi.encode(this, asset))).
+    /// @param caller The address that will call {createFeeWrapper} (i.e. the deploy tx sender).
+    /// @param owner The final owner from the config.
+    /// @param childVault The child vault from the config.
+    /// @param userSalt The user-supplied salt from the config.
+    /// @return The effective CREATE2 salt, bound to the caller and the trusted parameters.
+    function feeWrapperSalt(address caller, address owner, address childVault, bytes32 userSalt)
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(caller, owner, childVault, userSalt));
+    }
+
     /// @notice Configuration for a fee wrapper deployment.
     struct FeeWrapperConfig {
         // ---- Required ----
         address owner; // Final owner. MUST be a safe wallet (multisig, institutional, etc.).
-        bytes32 salt; // CREATE2 salt for deterministic deployment.
+        bytes32 salt; // User entropy for deterministic deployment. The effective CREATE2 salt is
+        // keccak256(abi.encode(msg.sender, owner, childVault, salt)); see feeWrapperSalt.
         address childVault; // The underlying Morpho Vault V2 to wrap. MUST be a V2 vault.
         // ---- Token metadata ----
         string name; // ERC20 name for the fee wrapper token. Can be empty (settable later by owner).
@@ -124,12 +185,20 @@ contract FeeWrapperDeployer {
             "FeeWrapperDeployer: child vault must be a Morpho Vault V2"
         );
 
+        // Bind the CREATE2 salt to the caller AND the trusted parameters (owner, childVault).
+        // This is what makes address squatting / front-running impossible: an attacker copying
+        // config.salt from the mempool necessarily has a different msg.sender (and/or substitutes
+        // owner/childVault), so they land on a different address and can never occupy the address a
+        // victim pre-computed. See feeWrapperSalt and the contract-level NatSpec.
+        bytes32 effectiveSalt = feeWrapperSalt(msg.sender, config.owner, config.childVault, config.salt);
+
         // Create the wrapper vault. The deployer is the initial owner.
-        vault = IVaultV2Factory(morphoVaultV2Factory).createVaultV2(
-            address(this), // temporary owner = this deployer
-            IVaultV2(config.childVault).asset(), // same asset as child vault
-            config.salt
-        );
+        vault = IVaultV2Factory(morphoVaultV2Factory)
+            .createVaultV2(
+                address(this), // temporary owner = this deployer
+                IVaultV2(config.childVault).asset(), // same asset as child vault
+                effectiveSalt
+            );
 
         // Make the deployer the curator so it can submit + execute timelocked functions.
         // (setCurator is an owner function, no timelock needed.)
@@ -143,9 +212,8 @@ contract FeeWrapperDeployer {
 
         // Create the MorphoVaultV1Adapter pointing to the child vault.
         // Despite the "V1" naming, this adapter is ERC4626-compatible and works with V2 child vaults.
-        address adapter = IMorphoVaultV1AdapterFactory(morphoVaultV1AdapterFactory).createMorphoVaultV1Adapter(
-            vault, config.childVault
-        );
+        address adapter = IMorphoVaultV1AdapterFactory(morphoVaultV1AdapterFactory)
+            .createMorphoVaultV1Adapter(vault, config.childVault);
 
         // The adapter's id data, used for cap configuration.
         // This matches the adapterId computed inside the MorphoVaultV1Adapter constructor:
@@ -216,9 +284,8 @@ contract FeeWrapperDeployer {
         //  they call forceDeallocate, making it economically irrational.
         // =====================================================================
 
-        IVaultV2(vault).submit(
-            abi.encodeCall(IVaultV2.setForceDeallocatePenalty, (adapter, MAX_FORCE_DEALLOCATE_PENALTY))
-        );
+        IVaultV2(vault)
+            .submit(abi.encodeCall(IVaultV2.setForceDeallocatePenalty, (adapter, MAX_FORCE_DEALLOCATE_PENALTY)));
         IVaultV2(vault).setForceDeallocatePenalty(adapter, MAX_FORCE_DEALLOCATE_PENALTY);
 
         // =====================================================================
@@ -230,9 +297,7 @@ contract FeeWrapperDeployer {
 
         if (config.performanceFee > 0) {
             // Set recipient first (fee is still 0, so the recipient invariant is satisfied).
-            IVaultV2(vault).submit(
-                abi.encodeCall(IVaultV2.setPerformanceFeeRecipient, (config.feeRecipient))
-            );
+            IVaultV2(vault).submit(abi.encodeCall(IVaultV2.setPerformanceFeeRecipient, (config.feeRecipient)));
             IVaultV2(vault).setPerformanceFeeRecipient(config.feeRecipient);
 
             // Now set the fee (recipient is already set).
@@ -242,9 +307,7 @@ contract FeeWrapperDeployer {
 
         if (config.managementFee > 0) {
             // Set recipient first.
-            IVaultV2(vault).submit(
-                abi.encodeCall(IVaultV2.setManagementFeeRecipient, (config.feeRecipient))
-            );
+            IVaultV2(vault).submit(abi.encodeCall(IVaultV2.setManagementFeeRecipient, (config.feeRecipient)));
             IVaultV2(vault).setManagementFeeRecipient(config.feeRecipient);
 
             // Now set the fee.
@@ -322,5 +385,7 @@ contract FeeWrapperDeployer {
         // 4. Transfer ownership. THIS MUST BE THE LAST CALL.
         //    After this, the deployer contract has no privileges on the vault.
         IVaultV2(vault).setOwner(config.owner);
+
+        emit FeeWrapperCreated(vault, msg.sender, config.owner, config.childVault, config.salt);
     }
 }

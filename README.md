@@ -167,6 +167,45 @@ Configurable parameters via `FeeWrapperConfig`:
 > For compliance use cases (KYC/AML), leave `abdicateNonCriticalGates = false` and configure gates later via the
 > curator + timelock mechanism.
 
+### Deterministic address & front-running protection
+
+The wrapper is deployed via `CREATE2`, so its address is deterministic. A naive implementation that forwarded the
+raw `config.salt` to the factory would be vulnerable to **address squatting**: because the deployer is always the
+initial `owner`, the CREATE2 init-code hash is identical for every caller, so the address would depend only on
+`(factory, salt, asset)`. A mempool observer could copy a pending `salt`, substitute their own `owner` and a malicious
+same-asset `childVault`, front-run the victim, and occupy the victim's pre-computed address with a fund-draining
+configuration.
+
+To make this impossible, `createFeeWrapper` does **not** use `config.salt` directly. It derives an *effective salt*
+bound to the authenticated deployment parameters:
+
+```solidity
+effectiveSalt = keccak256(abi.encode(msg.sender, owner, childVault, salt));
+```
+
+As a result the address is a pure function of `(deployer, owner, childVault, salt)`. A front-runner necessarily has a
+different `msg.sender` (or substitutes `owner`/`childVault`), so they land on a different address and can never occupy
+the address a victim pre-computed. Use `FeeWrapperDeployer.feeWrapperSalt(...)` to reproduce the effective salt
+off-chain, and a `FeeWrapperCreated(vault, caller, owner, childVault, salt)` event is emitted for provenance.
+
+> [!IMPORTANT]
+> Because the address is bound to `msg.sender`, always deploy through the sanctioned script
+> [`script/DeployFeeWrapper.s.sol`](./script/DeployFeeWrapper.s.sol), which pins the broadcaster, logs the resulting
+> deterministic address, and verifies on-chain provenance. Do **not** call `createFeeWrapper` ad hoc from other
+> contracts or unpinned tooling — the address is only meaningful relative to the caller that created it.
+
+```bash
+# Configure the deployment (see the script's NatSpec for the full list of variables)
+export MORPHO_VAULT_V2_FACTORY=0x...
+export MORPHO_VAULT_V1_ADAPTER_FACTORY=0x...
+export FW_OWNER=0x...          # final owner (MUST be a safe wallet / multisig)
+export FW_CHILD_VAULT=0x...    # child vault to wrap (MUST be a Morpho Vault V2)
+export FW_SALT=0x0000000000000000000000000000000000000000000000000000000000000001
+
+# Dry run first to preview the deterministic address, then add --broadcast
+forge script script/DeployFeeWrapper.s.sol:DeployFeeWrapper --rpc-url <rpc>
+```
+
 ## Getting Started
 
 - Install [Foundry](https://book.getfoundry.sh/getting-started/installation)
